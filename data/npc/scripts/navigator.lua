@@ -1,20 +1,12 @@
-	local keywordHandler = KeywordHandler:new()
+ local keywordHandler = KeywordHandler:new()
 local npcHandler = NpcHandler:new(keywordHandler)
 NpcSystem.parseParameters(npcHandler)
 
 
-function onCreatureAppear(cid)
-	npcHandler:onCreatureAppear(cid)
-end
-function onCreatureDisappear(cid)
-	npcHandler:onCreatureDisappear(cid)
-end
-function onCreatureSay(cid, type, msg)
-	npcHandler:onCreatureSay(cid, type, msg)
-end
-function onThink()
-	npcHandler:onThink()
-end
+function onCreatureAppear(cid)			npcHandler:onCreatureAppear(cid)			end
+function onCreatureDisappear(cid)		npcHandler:onCreatureDisappear(cid)			end
+function onCreatureSay(cid, type, msg)		npcHandler:onCreatureSay(cid, type, msg)		end
+function onThink()				npcHandler:onThink()					end
 
 function creatureSayCallback(cid, type, msg)
 	if(not npcHandler:isFocused(cid)) then
@@ -24,7 +16,7 @@ function creatureSayCallback(cid, type, msg)
 	local player = Player(cid)
 
 	if(msgcontains(msg, "flou")) then
-		if(getPlayerStorageValue(cid, Storage.Navigator) < 1) then
+		if(getPlayerStorageValue(cid, 72328) == 3) then
 			npcHandler:say("Lhnjei gouthn naumpi! I know why you are here. I can {explain} everything.", cid)
 			npcHandler.topic[cid] = 1
 		end
@@ -81,7 +73,7 @@ function creatureSayCallback(cid, type, msg)
 			npcHandler:say("Then take this one. And remember: DO NOT TELL ANYONE ABOUT ME OR ANYTHING YOU HAVE HEARD HERE TODAY.", cid)
 			player:addOutfitAddon(464, 2)
 			player:addOutfitAddon(463, 2)
-			setPlayerStorageValue(cid, Storage.Navigator, 4)
+			setPlayerStorageValue(cid, 72328, 4)
 			npcHandler.topic[cid] = 0
 		end
 	end

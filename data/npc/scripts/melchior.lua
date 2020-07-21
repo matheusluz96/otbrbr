@@ -2,18 +2,10 @@ local keywordHandler = KeywordHandler:new()
 local npcHandler = NpcHandler:new(keywordHandler)
 NpcSystem.parseParameters(npcHandler)
 
-function onCreatureAppear(cid)
-	npcHandler:onCreatureAppear(cid)
-end
-function onCreatureDisappear(cid)
-	npcHandler:onCreatureDisappear(cid)
-end
-function onCreatureSay(cid, type, msg)
-	npcHandler:onCreatureSay(cid, type, msg)
-end
-function onThink()
-	npcHandler:onThink()
-end
+function onCreatureAppear(cid)			npcHandler:onCreatureAppear(cid)			end
+function onCreatureDisappear(cid)		npcHandler:onCreatureDisappear(cid)			end
+function onCreatureSay(cid, type, msg)		npcHandler:onCreatureSay(cid, type, msg)		end
+function onThink()				npcHandler:onThink()					end
 
 local function greetCallback(cid)
 	npcHandler:setMessage(MESSAGE_GREET, Player(cid):getSex() == PLAYERSEX_FEMALE and 'Welcome, |PLAYERNAME|! The lovely sound of your voice shines like a beam of light through my solitary darkness!' or 'Greetings, |PLAYERNAME|. I do not see your face, but I can read a thousand things in your voice!')
@@ -26,7 +18,7 @@ local function creatureSayCallback(cid, type, msg)
 	end
 
 	local player = Player(cid)
-	if msgcontains(msg, 'greeting') then
+	if msgcontains(msg, 'word of greeting') then
 		if player:getStorageValue(Storage.DjinnWar.Faction.Greeting) ~= 0 then
 			npcHandler:say({
 				'The djinns have an ancient code of honour. This code includes a special concept of hospitality. Anybody who utters the word of greeting must not be attacked even if he is an enemy. Well, at least that is what the code says. ...',

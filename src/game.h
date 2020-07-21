@@ -1,6 +1,8 @@
 /**
+ * @file game.h
+ * 
  * The Forgotten Server - a free and open-source MMORPG server emulator
- * Copyright (C) 2019  Mark Samman <mark.samman@gmail.com>
+ * Copyright (C) 2020 Mark Samman <mark.samman@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,10 +19,10 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef FS_GAME_H_3EC96D67DD024E6093B3BAC29B7A6D7F
-#define FS_GAME_H_3EC96D67DD024E6093B3BAC29B7A6D7F
+#ifndef OT_SRC_GAME_H_
+#define OT_SRC_GAME_H_
 
-#include "account.hpp"
+#include "account.h"
 #include "combat.h"
 #include "groups.h"
 #include "map.h"
@@ -45,7 +47,6 @@ enum stackPosType_t {
 	STACKPOS_TOPDOWN_ITEM,
 	STACKPOS_USEITEM,
 	STACKPOS_USETARGET,
-  	STACKPOS_FIND_THING,
 };
 
 enum WorldType_t {
@@ -71,7 +72,7 @@ enum LightState_t {
 	LIGHT_STATE_SUNRISE,
 };
 
-static constexpr int32_t EVENT_LIGHTINTERVAL = 10000;
+static constexpr int32_t EVENT_LIGHTINTERVAL = 7500;
 static constexpr int32_t EVENT_DECAYINTERVAL = 250;
 static constexpr int32_t EVENT_DECAY_BUCKETS = 4;
 static constexpr int32_t EVENT_IMBUEMENTINTERVAL = 250;
@@ -99,7 +100,6 @@ class Game
 
 		bool loadMainMap(const std::string& filename);
 		void loadMap(const std::string& path);
-		bool loadCustomSpawnFile(const std::string& fileName);
 
 		/**
 		  * Get the map size - info purpose only
@@ -208,7 +208,7 @@ class Game
 		  * \param extendedPos If true, the creature will in first-hand be placed 2 tiles away
 		  * \param force If true, placing the creature will not fail because of obstacles (creatures/items)
 		  */
-		bool placeCreature(Creature* creature, const Position& pos, bool extendedPos = false, bool force = false);
+		bool placeCreature(Creature* creature, const Position& pos, bool extendedPos = false, bool force = false, Creature* master = nullptr);
 
 		/**
 		  * Remove Creature from the map.
@@ -216,8 +216,7 @@ class Game
 		  * \param c Creature to remove
 		  */
 		bool removeCreature(Creature* creature, bool isLogout = true);
-		void executeDeath(uint32_t creatureId);
-		
+
 		void addCreatureCheck(Creature* creature);
 		static void removeCreatureCheck(Creature* creature);
 
@@ -233,6 +232,7 @@ class Game
 		uint32_t getPlayersRecord() const {
 			return playersRecord;
 		}
+
 		uint16_t getItemsPriceCount() const {
 			return itemsSaleCount;
 		}
@@ -329,6 +329,9 @@ class Game
 		void playerAnswerModalWindow(uint32_t playerId, uint32_t modalWindowId, uint8_t button, uint8_t choice);
 		void playerReportRuleViolationReport(uint32_t playerId, const std::string& targetName, uint8_t reportType, uint8_t reportReason, const std::string& comment, const std::string& translation);
 
+		void playerCyclopediaCharacterInfo(uint32_t playerId, CyclopediaCharacterInfoType_t characterInfoType);
+		void playerTournamentLeaderboard(uint32_t playerId, uint8_t leaderboardType);
+
 		bool internalStartTrade(Player* player, Player* partner, Item* tradeItem);
 		void internalCloseTrade(Player* player);
 		bool playerBroadcastMessage(Player* player, const std::string& text) const;
@@ -413,6 +416,8 @@ class Game
 		void playerCreateMarketOffer(uint32_t playerId, uint8_t type, uint16_t spriteId, uint16_t amount, uint32_t price, bool anonymous);
 		void playerCancelMarketOffer(uint32_t playerId, uint32_t timestamp, uint16_t counter);
 		void playerAcceptMarketOffer(uint32_t playerId, uint32_t timestamp, uint16_t counter, uint16_t amount);
+		void playerRequestResourceData(uint32_t playerId, ResourceType_t resourceType);
+		void playerPreyAction(uint32_t playerId, uint8_t preySlotId, PreyAction_t preyAction, uint8_t monsterIndex);
 		void playerStoreOpen(uint32_t playerId, uint8_t serviceType);
 		void playerShowStoreCategoryOffers(uint32_t playerId, StoreCategory* category);
 		void playerBuyStoreOffer(uint32_t playerId, uint32_t offerId, uint8_t productType, const std::string& additionalInfo="");
@@ -423,7 +428,7 @@ class Game
 
 		std::forward_list<Item*> getMarketItemList(uint16_t wareId, uint16_t sufficientCount, DepotLocker* depotLocker);
 
-		static void updatePremium(account::Account& account);
+		static void updatePremium(Account& account);
 
 		void cleanup();
 		void shutdown();
@@ -440,6 +445,7 @@ class Game
 		void changeLight(const Creature* creature);
 		void updateCreatureSkull(const Creature* player);
 		void updatePlayerShield(Player* player);
+		void updatePlayerHelpers(const Player& player);
 		void updateCreatureType(Creature* creature);
 		void updateCreatureWalkthrough(const Creature* creature);
 
@@ -478,6 +484,15 @@ class Game
 		int32_t getLightHour() const {
 			return lightHour;
 		}
+
+		bool loadExperienceStages();
+		double getExperienceStage(uint32_t level);
+
+		bool loadSkillStages();
+		uint64_t getSkillStage(uint32_t level);
+
+		bool loadMagicLevelStages();
+		uint64_t getMagicLevelStage(uint32_t level);
 
 		bool loadItemsPrice();
 
@@ -534,9 +549,10 @@ class Game
 		std::forward_list<Item*> toDecayItems;
 		std::forward_list<Item*> toImbuedItems;
 
-	private:
+	protected:
 		void checkImbuements();
-		void applyImbuementEffects(Creature* attacker, int32_t realDamage);
+
+		void applyImbuementEffects(Creature* attacker, CombatDamage& damage, int32_t realDamage);
 		bool playerSaySpell(Player* player, SpeakClasses type, const std::string& text);
 		void playerWhisper(Player* player, const std::string& text);
 		bool playerYell(Player* player, const std::string& text);
@@ -550,7 +566,9 @@ class Game
 		std::unordered_map<std::string, Player*> mappedPlayerNames;
 		std::unordered_map<uint32_t, Guild*> guilds;
 		std::unordered_map<uint16_t, Item*> uniqueItems;
-		std::map<uint32_t, uint32_t> stages;
+		std::map<uint32_t, double> stages;
+		std::map<uint32_t, uint32_t> stagesSkill;
+		std::map<uint32_t, uint32_t> stagesMl;
 
 		std::list<Item*> decayItems[EVENT_DECAY_BUCKETS];
 		std::list<Creature*> checkCreatureLists[EVENT_CREATURECOUNT];
@@ -601,6 +619,16 @@ class Game
 
 		std::map<uint16_t, uint32_t> itemsPriceMap;
 		uint16_t itemsSaleCount;
+
+		uint32_t lastStageLevel = 0;
+		bool stagesEnabled = false;
+		bool useLastStageLevel = false;
+		uint32_t lastStageSkill = 0;
+		bool stagesSkillEnabled = false;
+		bool useLastStageSkill = false;
+		uint32_t lastStageMl = 0;
+		bool stagesMlEnabled = false;
+		bool useLastStageMl = false;
 };
 
 #endif

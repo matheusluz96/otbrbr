@@ -2,25 +2,17 @@ local keywordHandler = KeywordHandler:new()
 local npcHandler = NpcHandler:new(keywordHandler)
 NpcSystem.parseParameters(npcHandler)
 
-function onCreatureAppear(cid)
-	npcHandler:onCreatureAppear(cid)
-end
-function onCreatureDisappear(cid)
-	npcHandler:onCreatureDisappear(cid)
-end
-function onCreatureSay(cid, type, msg)
-	npcHandler:onCreatureSay(cid, type, msg)
-end
-function onThink()
-	npcHandler:onThink()
-end
+function onCreatureAppear(cid)			npcHandler:onCreatureAppear(cid)			end
+function onCreatureDisappear(cid)		npcHandler:onCreatureDisappear(cid)			end
+function onCreatureSay(cid, type, msg)		npcHandler:onCreatureSay(cid, type, msg)		end
+function onThink()				npcHandler:onThink()					end
 
 keywordHandler:addGreetKeyword({'hi'}, {npcHandler = npcHandler, text = 'Hello and welcome in the gnomish {recruitment} office.'},
-	function (player)
-		if player:getStorageValue(Storage.BigfootBurden.QuestLine) == 1 then
+  function (player)
+  	if player:getStorageValue(Storage.BigfootBurden.QuestLine) == 1 then
 
-			player:setStorageValue(Storage.BigfootBurden.QuestLine, 3)
-		end
+  		player:setStorageValue(Storage.BigfootBurden.QuestLine, 3)
+  	end
 	end
 )
 keywordHandler:addAliasKeyword({'hello'})

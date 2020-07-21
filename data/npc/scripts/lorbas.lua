@@ -2,18 +2,10 @@ local keywordHandler = KeywordHandler:new()
 local npcHandler = NpcHandler:new(keywordHandler)
 NpcSystem.parseParameters(npcHandler)
 
-function onCreatureAppear(cid)
-	npcHandler:onCreatureAppear(cid)
-end
-function onCreatureDisappear(cid)
-	npcHandler:onCreatureDisappear(cid)
-end
-function onCreatureSay(cid, type, msg)
-	npcHandler:onCreatureSay(cid, type, msg)
-end
-function onThink()
-	npcHandler:onThink()
-end
+function onCreatureAppear(cid)			npcHandler:onCreatureAppear(cid)			end
+function onCreatureDisappear(cid)		npcHandler:onCreatureDisappear(cid)			end
+function onCreatureSay(cid, type, msg)		npcHandler:onCreatureSay(cid, type, msg)		end
+function onThink()				npcHandler:onThink()					end
 
 local function creatureSayCallback(cid, type, msg)
 	if not npcHandler:isFocused(cid) then
@@ -23,8 +15,8 @@ local function creatureSayCallback(cid, type, msg)
 	local player = Player(cid)
 
 	if msgcontains(msg, 'cookie') then
-		if player:getStorageValue(Storage.WhatAFoolish.Questline) == 31
-				and player:getStorageValue(Storage.WhatAFoolish.CookieDelivery.Lorbas) ~= 1 then
+		if player:getStorageValue(Storage.WhatAFoolishQuest.Questline) == 31
+				and player:getStorageValue(Storage.WhatAFoolishQuest.CookieDelivery.Lorbas) ~= 1 then
 			npcHandler:say('You want me to eat this cookie?', cid)
 			npcHandler.topic[cid] = 1
 		end
@@ -36,7 +28,7 @@ local function creatureSayCallback(cid, type, msg)
 				return true
 			end
 
-			player:setStorageValue(Storage.WhatAFoolish.CookieDelivery.Lorbas, 1)
+			player:setStorageValue(Storage.WhatAFoolishQuest.CookieDelivery.Lorbas, 1)
 			if player:getCookiesDelivered() == 10 then
 				player:addAchievement('Allow Cookies?')
 			end

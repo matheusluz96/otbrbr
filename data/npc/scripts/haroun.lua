@@ -1,19 +1,11 @@
-	local keywordHandler = KeywordHandler:new()
+ local keywordHandler = KeywordHandler:new()
 local npcHandler = NpcHandler:new(keywordHandler)
 NpcSystem.parseParameters(npcHandler)
 
-function onCreatureAppear(cid)
-	npcHandler:onCreatureAppear(cid)
-end
-function onCreatureDisappear(cid)
-	npcHandler:onCreatureDisappear(cid)
-end
-function onCreatureSay(cid, type, msg)
-	npcHandler:onCreatureSay(cid, type, msg)
-end
-function onThink()
-	npcHandler:onThink()
-end
+function onCreatureAppear(cid)			npcHandler:onCreatureAppear(cid)			end
+function onCreatureDisappear(cid)		npcHandler:onCreatureDisappear(cid)			end
+function onCreatureSay(cid, type, msg)		npcHandler:onCreatureSay(cid, type, msg)		end
+function onThink()				npcHandler:onThink()					end
 
 local function creatureSayCallback(cid, type, msg)
 	if not npcHandler:isFocused(cid) then
@@ -60,7 +52,7 @@ end
 
 local function onTradeRequest(cid)
 	local player = Player(cid)
-
+	
 	if player:getStorageValue(Storage.DjinnWar.MaridFaction.Mission03) ~= 3 then
 		npcHandler:say('I\'m sorry, human. But you need Gabel\'s permission to trade with me.', cid)
 		return false

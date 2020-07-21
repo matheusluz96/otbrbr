@@ -1,6 +1,8 @@
 /**
+ * @file chat.h
+ * 
  * The Forgotten Server - a free and open-source MMORPG server emulator
- * Copyright (C) 2019  Mark Samman <mark.samman@gmail.com>
+ * Copyright (C) 2020 Mark Samman <mark.samman@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,8 +19,8 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef FS_CHAT_H_F1574642D0384ABFAB52B7ED906E5628
-#define FS_CHAT_H_F1574642D0384ABFAB52B7ED906E5628
+#ifndef OT_SRC_CHAT_H_
+#define OT_SRC_CHAT_H_
 
 #include "const.h"
 #include "luascript.h"
@@ -91,7 +93,7 @@ class PrivateChatChannel final : public ChatChannel
 	public:
 		PrivateChatChannel(uint16_t channelId, std::string channelName) : ChatChannel(channelId, channelName) {}
 
-		uint32_t getOwner() const override {
+		uint32_t getOwner() const final {
 			return owner;
 		}
 		void setOwner(uint32_t newOwner) {
@@ -107,11 +109,11 @@ class PrivateChatChannel final : public ChatChannel
 
 		void closeChannel() const;
 
-		const InvitedMap* getInvitedUsers() const override {
+		const InvitedMap* getInvitedUsers() const final {
 			return &invites;
 		}
 
-	private:
+	protected:
 		InvitedMap invites;
 		uint32_t owner = 0;
 };

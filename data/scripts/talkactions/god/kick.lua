@@ -1,6 +1,6 @@
-local kick = TalkAction("/kick")
+local talk = TalkAction("/kick")
 
-function kick.onSay(player, words, param)
+function talk.onSay(player, words, param)
 	if not player:getGroup():getAccess() or player:getAccountType() < ACCOUNT_TYPE_GOD then
 		return true
 	end
@@ -20,5 +20,5 @@ function kick.onSay(player, words, param)
 	return false
 end
 
-kick:separator(" ")
-kick:register()
+talk:separator(" ")
+talk:register()

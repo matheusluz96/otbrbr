@@ -1,6 +1,6 @@
-local magicEffect = TalkAction("/effect")
+local talk = TalkAction("/effect")
 
-function magicEffect.onSay(player, words, param)
+function talk.onSay(player, words, param)
 	if not player:getGroup():getAccess() or player:getAccountType() < ACCOUNT_TYPE_GOD then
 		return true
 	end
@@ -18,5 +18,5 @@ function magicEffect.onSay(player, words, param)
 	return false
 end
 
-magicEffect:separator(" ")
-magicEffect:register()
+talk:separator(" ")
+talk:register()

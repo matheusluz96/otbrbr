@@ -1,19 +1,11 @@
-	local keywordHandler = KeywordHandler:new()
+ local keywordHandler = KeywordHandler:new()
 local npcHandler = NpcHandler:new(keywordHandler)
 NpcSystem.parseParameters(npcHandler)
 
-function onCreatureAppear(cid)
-	npcHandler:onCreatureAppear(cid)
-end
-function onCreatureDisappear(cid)
-	npcHandler:onCreatureDisappear(cid)
-end
-function onCreatureSay(cid, type, msg)
-	npcHandler:onCreatureSay(cid, type, msg)
-end
-function onThink()
-	npcHandler:onThink()
-end
+function onCreatureAppear(cid)			npcHandler:onCreatureAppear(cid)			end
+function onCreatureDisappear(cid)		npcHandler:onCreatureDisappear(cid)			end
+function onCreatureSay(cid, type, msg)		npcHandler:onCreatureSay(cid, type, msg)		end
+function onThink()				npcHandler:onThink()					end
 
 keywordHandler:addKeyword({'gods'}, StdModule.say, {npcHandler = npcHandler, text = "I think the gods are too busy to care about us mortals, hmm... that makes me feel godlike, too."})
 keywordHandler:addKeyword({'job'}, StdModule.say, {npcHandler = npcHandler, text = "I am honored to be the assistant of the great, the illustrious, the magnificent {Durin}!"})
@@ -56,7 +48,7 @@ local function creatureSayCallback(cid, type, msg)
 	local player = Player(cid)
 
 	if msgcontains(msg, 'invitation') then
-		if player:getStorageValue(Storage.ThievesGuild.Mission03) == 1 then
+		if player:getStorageValue(Storage.thievesGuild.Mission03) == 1 then
 			npcHandler:say('What? So why in the world should I give you an invitation? It\'s not as if you were someone important, are you?', cid)
 			npcHandler.topic[cid] = 1
 		end
@@ -67,7 +59,7 @@ local function creatureSayCallback(cid, type, msg)
 		elseif npcHandler.topic[cid] == 3 then
 			if player:removeMoneyNpc(1000) then
 				player:addItem(8761, 1)
-				player:setStorageValue(Storage.ThievesGuild.Mission03, 2)
+				player:setStorageValue(Storage.thievesGuild.Mission03, 2)
 				npcHandler:say('Excellent! Here is your invitation!', cid)
 			else
 				npcHandler:say('You don\'t have enough money.', cid)

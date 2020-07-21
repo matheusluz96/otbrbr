@@ -2,18 +2,10 @@ local keywordHandler = KeywordHandler:new()
 local npcHandler = NpcHandler:new(keywordHandler)
 NpcSystem.parseParameters(npcHandler)
 
-function onCreatureAppear(cid)
-	npcHandler:onCreatureAppear(cid)
-end
-function onCreatureDisappear(cid)
-	npcHandler:onCreatureDisappear(cid)
-end
-function onCreatureSay(cid, type, msg)
-	npcHandler:onCreatureSay(cid, type, msg)
-end
-function onThink()
-	npcHandler:onThink()
-end
+function onCreatureAppear(cid)			npcHandler:onCreatureAppear(cid)			end
+function onCreatureDisappear(cid)		npcHandler:onCreatureDisappear(cid)			end
+function onCreatureSay(cid, type, msg)		npcHandler:onCreatureSay(cid, type, msg)		end
+function onThink()				npcHandler:onThink()					end
 
 local function creatureSayCallback(cid, type, msg)
 	if not npcHandler:isFocused(cid) then
@@ -51,6 +43,7 @@ local function creatureSayCallback(cid, type, msg)
 	elseif msgcontains(msg, "raymond striker") then
 		if player:getStorageValue(Storage.TheShatteredIsles.AccessToLagunaIsland) == 1 then
 			npcHandler:say("<blushes> Oh, he is so wonderful. A very special man with a special place in my heart.", cid)
+			player:setStorageValue(Storage.TheShatteredIsles.MerianaQuest, 1)
 			npcHandler.topic[cid] = 0
 		end
 	elseif msgcontains(msg, "mermaid") then

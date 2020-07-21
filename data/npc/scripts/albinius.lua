@@ -3,18 +3,10 @@ local npcHandler = NpcHandler:new(keywordHandler)
 NpcSystem.parseParameters(npcHandler)
 local talkState = {}
 
-function onCreatureAppear(cid)
-	npcHandler:onCreatureAppear(cid)
-end
-function onCreatureDisappear(cid)
-	npcHandler:onCreatureDisappear(cid)
-end
-function onCreatureSay(cid, type, msg)
-	npcHandler:onCreatureSay(cid, type, msg)
-end
-function onThink()
-	npcHandler:onThink()
-end
+function onCreatureAppear(cid)    npcHandler:onCreatureAppear(cid)   end
+function onCreatureDisappear(cid)   npcHandler:onCreatureDisappear(cid)   end
+function onCreatureSay(cid, type, msg)   npcHandler:onCreatureSay(cid, type, msg)  end
+function onThink()     npcHandler:onThink()     end
 
 keywordHandler:addKeyword({'name'}, StdModule.say, {npcHandler = npcHandler, text = "I am Albinius, a worshipper of the {Astral Shapers}."})
 keywordHandler:addKeyword({'time'}, StdModule.say, {npcHandler = npcHandler, text = "Precisely time."})
@@ -49,7 +41,7 @@ local function creatureSayCallback(cid, type, msg)
 		}, cid)
 	end
 
-	if msgcontains(msg, 'temple') then
+    if msgcontains(msg, 'temple') then
 		npcHandler:say({
 			"The temple has been restored to its former glory, yet we strife to live and praise in the Shaper ways. Do you still need me to take some old tomes from you my child?"
 		}, cid)

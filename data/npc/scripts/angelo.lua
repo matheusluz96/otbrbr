@@ -1,19 +1,11 @@
-	local keywordHandler = KeywordHandler:new()
+ local keywordHandler = KeywordHandler:new()
 local npcHandler = NpcHandler:new(keywordHandler)
 NpcSystem.parseParameters(npcHandler)
 
-function onCreatureAppear(cid)
-	npcHandler:onCreatureAppear(cid)
-end
-function onCreatureDisappear(cid)
-	npcHandler:onCreatureDisappear(cid)
-end
-function onCreatureSay(cid, type, msg)
-	npcHandler:onCreatureSay(cid, type, msg)
-end
-function onThink()
-	npcHandler:onThink()
-end
+function onCreatureAppear(cid)			npcHandler:onCreatureAppear(cid)			end
+function onCreatureDisappear(cid)		npcHandler:onCreatureDisappear(cid)			end
+function onCreatureSay(cid, type, msg)		npcHandler:onCreatureSay(cid, type, msg)		end
+function onThink()				npcHandler:onThink()					end
 
 local playerTopic = {}
 local function greetCallback(cid)
@@ -62,7 +54,6 @@ if npcHandler.topic[cid] == 1 and msgcontains(msg, "project") then
 	elseif npcHandler.topic[cid] == 5 and msgcontains(msg, "yes") then
 		npcHandler:say({"Fantastic! Go there and then tell me what you've seen. I've oppened the door for you. Take care of yourself!"}, cid)
 		player:setStorageValue(Storage.CultsOfTibia.Life.Mission, 2)
-		player:setStorageValue(Storage.CultsOfTibia.Life.AccessDoor, 1)
 		playerTopic[cid] = 0
 
 	-- Inútil
@@ -112,7 +103,7 @@ end
 -- after killing the boss the sandking
 if player:getStorageValue(Storage.CultsOfTibia.Life.Mission) == 8 then
 		npcHandler:setMessage(MESSAGE_GREET, "Just get out of my way! You killed this beautiful creature. I have nothing more to say. Damn druid of Crunor!")
-		player:setStorageValue(Storage.CultsOfTibia.Life.Mission, 9)
+		player:setStorageValue(Storage.CultsOfTibia.Life.Mission, 9)	
 end
 
 

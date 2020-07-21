@@ -1,6 +1,8 @@
 /**
+ * @file creature.h
+ * 
  * The Forgotten Server - a free and open-source MMORPG server emulator
- * Copyright (C) 2019  Mark Samman <mark.samman@gmail.com>
+ * Copyright (C) 2020 Mark Samman <mark.samman@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,8 +19,8 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef FS_CREATURE_H_5363C04015254E298F84E6D59A139508
-#define FS_CREATURE_H_5363C04015254E298F84E6D59A139508
+#ifndef OT_SRC_CREATURE_H_
+#define OT_SRC_CREATURE_H_
 
 #include "map.h"
 #include "position.h"
@@ -43,6 +45,7 @@ enum slots_t : uint8_t {
 	CONST_SLOT_FEET = 8,
 	CONST_SLOT_RING = 9,
 	CONST_SLOT_AMMO = 10,
+
 	CONST_SLOT_STORE_INBOX = 11,
 
 	CONST_SLOT_FIRST = CONST_SLOT_HEAD,
@@ -78,12 +81,12 @@ class FrozenPathingConditionCall
 		explicit FrozenPathingConditionCall(Position newTargetPos) : targetPos(std::move(newTargetPos)) {}
 
 		bool operator()(const Position& startPos, const Position& testPos,
-		                const FindPathParams& fpp, int32_t& bestMatchDist) const;
+						const FindPathParams& fpp, int32_t& bestMatchDist) const;
 
 		bool isInRange(const Position& startPos, const Position& testPos,
-		               const FindPathParams& fpp) const;
+					   const FindPathParams& fpp) const;
 
-	private:
+	protected:
 		Position targetPos;
 };
 
@@ -105,10 +108,10 @@ class Creature : virtual public Thing
 		Creature(const Creature&) = delete;
 		Creature& operator=(const Creature&) = delete;
 
-		Creature* getCreature() override final {
+		Creature* getCreature() final {
 			return this;
 		}
-		const Creature* getCreature() const override final {
+		const Creature* getCreature() const final {
 			return this;
 		}
 		virtual Player* getPlayer() {
@@ -180,13 +183,13 @@ class Creature : virtual public Thing
 			moveLocked = locked;
 		}
 
-		int32_t getThrowRange() const override final {
+		int32_t getThrowRange() const final {
 			return 1;
 		}
 		bool isPushable() const override {
 			return getWalkDelay() <= 0;
 		}
-		bool isRemoved() const override final {
+		bool isRemoved() const final {
 			return isInternalRemoved;
 		}
 		virtual bool canSeeInvisibility() const {
@@ -238,7 +241,7 @@ class Creature : virtual public Thing
 			return mana;
 		}
 		virtual uint32_t getMaxMana() const {
-			return mana;
+			return 0;
 		}
 
 		const Outfit_t getCurrentOutfit() const {
@@ -282,7 +285,7 @@ class Creature : virtual public Thing
 		}
 		virtual bool setAttackedCreature(Creature* creature);
 		virtual BlockType_t blockHit(Creature* attacker, CombatType_t combatType, int32_t& damage,
-		                             bool checkDefense = false, bool checkArmor = false, bool field = false);
+									 bool checkDefense = false, bool checkArmor = false, bool field = false);
 
 		bool setMaster(Creature* newMaster);
 
@@ -393,14 +396,14 @@ class Creature : virtual public Thing
 
 		void onAddTileItem(const Tile* tile, const Position& pos);
 		virtual void onUpdateTileItem(const Tile* tile, const Position& pos, const Item* oldItem,
-		                              const ItemType& oldType, const Item* newItem, const ItemType& newType);
+									  const ItemType& oldType, const Item* newItem, const ItemType& newType);
 		virtual void onRemoveTileItem(const Tile* tile, const Position& pos, const ItemType& iType,
-		                              const Item* item);
+									  const Item* item);
 
 		virtual void onCreatureAppear(Creature* creature, bool isLogin);
 		virtual void onRemoveCreature(Creature* creature, bool isLogout);
 		virtual void onCreatureMove(Creature* creature, const Tile* newTile, const Position& newPos,
-		                            const Tile* oldTile, const Position& oldPos, bool teleport);
+									const Tile* oldTile, const Position& oldPos, bool teleport);
 
 		virtual void onAttackedCreatureDisappear(bool) {}
 		virtual void onFollowCreatureDisappear(bool) {}
@@ -430,22 +433,22 @@ class Creature : virtual public Thing
 		bool registerCreatureEvent(const std::string& name);
 		bool unregisterCreatureEvent(const std::string& name);
 
-		Cylinder* getParent() const override final {
+		Cylinder* getParent() const final {
 			return tile;
 		}
-		void setParent(Cylinder* cylinder) override final {
+		void setParent(Cylinder* cylinder) final {
 			tile = static_cast<Tile*>(cylinder);
 			position = tile->getPosition();
 		}
 
-		const Position& getPosition() const override final {
+		const Position& getPosition() const final {
 			return position;
 		}
 
-		Tile* getTile() override final {
+		Tile* getTile() final {
 			return tile;
 		}
-		const Tile* getTile() const override final {
+		const Tile* getTile() const final {
 			return tile;
 		}
 

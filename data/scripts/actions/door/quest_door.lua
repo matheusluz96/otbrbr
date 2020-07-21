@@ -1,18 +1,21 @@
+-- quest door
+local door = Action()
 local doorIds = {}
-for index, value in ipairs(QuestDoorTable) do
-	if not table.contains(doorIds, value.openDoor) then
-		table.insert(doorIds, value.openDoor)
-	end
 
-	if not table.contains(doorIds, value.closedDoor) then
-		table.insert(doorIds, value.closedDoor)
-	end
+for index, value in ipairs(questDoor) do
+    if not table.contains(doorIds, value.openDoor) then
+        table.insert(doorIds, value.openDoor)
+    end
+
+    if not table.contains(doorIds, value.closedDoor) then
+        table.insert(doorIds, value.closedDoor)
+    end
 end
 
-local questDoor = Action()
-function questDoor.onUse(player, item, fromPosition, target, toPosition, isHotkey)
-	for index, value in ipairs(QuestDoorTable) do
-		if value.closedDoor == item.itemid then
+function door.onUse(player, item, fromPosition, target, toPosition, isHotkey)
+    local itemId = item:getId()
+    for index, value in ipairs(questDoor) do
+		 if value.closedDoor == itemId then
 			if item.actionid > 0 and player:getStorageValue(item.actionid) ~= -1 then
 				item:transform(value.openDoor)
 				player:teleportTo(toPosition, true)
@@ -23,15 +26,36 @@ function questDoor.onUse(player, item, fromPosition, target, toPosition, isHotke
 			end
 		end
 	end
-
-	if Creature.checkCreatureInsideDoor(player, toPosition) then
-		return true
+	
+	local doorCreature = Tile(toPosition):getTopCreature()
+	if doorCreature then
+		toPosition.x = toPosition.x + 1
+		local query = Tile(toPosition):queryAdd(doorCreature, bit.bor(FLAG_IGNOREBLOCKCREATURE, FLAG_PATHFINDING))
+		if query ~= RETURNVALUE_NOERROR then
+			toPosition.x = toPosition.x - 1
+			toPosition.y = toPosition.y + 1
+			query = Tile(toPosition):queryAdd(doorCreature, bit.bor(FLAG_IGNOREBLOCKCREATURE, FLAG_PATHFINDING))
+		end
+		if query ~= RETURNVALUE_NOERROR then
+			toPosition.y = toPosition.y - 2
+			query = Tile(toPosition):queryAdd(doorCreature, bit.bor(FLAG_IGNOREBLOCKCREATURE, FLAG_PATHFINDING))
+		end
+		if query ~= RETURNVALUE_NOERROR then
+			toPosition.x = toPosition.x - 1
+			toPosition.y = toPosition.y + 1
+			query = Tile(toPosition):queryAdd(doorCreature, bit.bor(FLAG_IGNOREBLOCKCREATURE, FLAG_PATHFINDING))
+		end
+		if query ~= RETURNVALUE_NOERROR then
+			player:sendCancelMessage(RETURNVALUE_NOTPOSSIBLE)
+			return true
+		end
+		doorCreature:teleportTo(toPosition, true)
 	end
 	return true
 end
 
 for index, value in ipairs(doorIds) do
-	questDoor:id(value)
+    door:id(value)
 end
 
-questDoor:register()
+door:register()

@@ -1,10 +1,12 @@
----- if you want protected corpses (10 second protection after monster being killed) to be skinned/dusted, delete '--#' in the appropriate lines; be careful, it may cause abuses ----
+---- if you want protected corpses (10 second protection after monster being killed) to be skinned/dusted, delete '' in the appropriate lines; be careful, it may cause abuses ----
 local config = {
 	[5908] = {
 
 		-- rabbits
 		[2992] = {value = 25000, newItem = 13159, after = 2993},
-		[6017] = {value = 25000, newItem = 13159, after = 2993}, -- after being killed
+		[6017] = {value = 25000, newItem = 13159, after = 2993},
+		[3119] = {value = 25000, newItem = 13159, after = 2993},
+		[3120] = {value = 25000, newItem = 13159, after = 2993},
 
 		-- Minotaurs
 		[3090] = {value = 25000, newItem = 5878, after = 2831}, -- minotaur

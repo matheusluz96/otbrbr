@@ -2,18 +2,10 @@ local keywordHandler = KeywordHandler:new()
 local npcHandler = NpcHandler:new(keywordHandler)
 NpcSystem.parseParameters(npcHandler)
 
-function onCreatureAppear(cid)
-	npcHandler:onCreatureAppear(cid)
-end
-function onCreatureDisappear(cid)
-	npcHandler:onCreatureDisappear(cid)
-end
-function onCreatureSay(cid, type, msg)
-	npcHandler:onCreatureSay(cid, type, msg)
-end
-function onThink()
-	npcHandler:onThink()
-end
+function onCreatureAppear(cid)			npcHandler:onCreatureAppear(cid)			end
+function onCreatureDisappear(cid)		npcHandler:onCreatureDisappear(cid)			end
+function onCreatureSay(cid, type, msg)		npcHandler:onCreatureSay(cid, type, msg)		end
+function onThink()				npcHandler:onThink()					end
 
 local function greetCallback(cid)
 	if Player(cid):getStorageValue(Storage.TheApeCity.Questline) < 12 then
@@ -450,7 +442,7 @@ local function creatureSayCallback(cid, type, msg)
 				return true
 			end
 
-			player:setStorageValue(Storage.WhatAFoolish.CookieDelivery.Hairycles, 1)
+			player:setStorageValue(Storage.WhatAFoolishQuest.CookieDelivery.Hairycles, 1)
 			if player:getCookiesDelivered() == 10 then
 				player:addAchievement('Allow Cookies?')
 			end

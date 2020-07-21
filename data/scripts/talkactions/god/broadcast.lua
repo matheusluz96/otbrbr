@@ -1,10 +1,10 @@
-local broadcast = TalkAction("/b")
+local talk = TalkAction("/b")
 
-function broadcast.onSay(player, words, param)
+function talk.onSay(player, words, param)
 	if not player:getGroup():getAccess() or player:getAccountType() < ACCOUNT_TYPE_GOD then
 		return true
 	end
-
+	
 	if param == "" then
 		player:sendCancelMessage("Command param required.")
 		return false
@@ -17,5 +17,5 @@ function broadcast.onSay(player, words, param)
 	return false
 end
 
-broadcast:separator(" ")
-broadcast:register()
+talk:separator(" ")
+talk:register()

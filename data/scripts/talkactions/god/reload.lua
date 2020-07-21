@@ -1,3 +1,5 @@
+local talk = TalkAction("/reload")
+
 local reloadTypes = {
 	["all"] = RELOAD_TYPE_ALL,
 
@@ -45,11 +47,6 @@ local reloadTypes = {
 	["spell"] = RELOAD_TYPE_SPELLS,
 	["spells"] =  RELOAD_TYPE_SPELLS,
 
-	["stages"] = RELOAD_TYPE_STAGES,
-	["stage"] = RELOAD_TYPE_STAGES,
-	["rate"] = RELOAD_TYPE_STAGES,
-	["rates"] = RELOAD_TYPE_STAGES,
-
 	["talk"] = RELOAD_TYPE_TALKACTIONS,
 	["talkaction"] = RELOAD_TYPE_TALKACTIONS,
 	["talkactions"] = RELOAD_TYPE_TALKACTIONS,
@@ -61,9 +58,7 @@ local reloadTypes = {
 	["libs"] = RELOAD_TYPE_GLOBAL
 }
 
-local reload = TalkAction("/reload")
-
-function reload.onSay(player, words, param)
+function talk.onSay(player, words, param)
 	if not player:getGroup():getAccess() or player:getAccountType() < ACCOUNT_TYPE_GOD then
 		return true
 	end
@@ -76,18 +71,15 @@ function reload.onSay(player, words, param)
 	logCommand(player, words, param)
 
 	local reloadType = reloadTypes[param:lower()]
-	if reloadType then
-		Game.reload(reloadType)
-		player:sendTextMessage(MESSAGE_INFO_DESCR, string.format("Reloaded %s.", param:lower()))
-		print("Reloaded: " .. param:lower() .. ".")
-		return true
-	elseif not reloadType then
+	if not reloadType then
 		player:sendCancelMessage("Reload type not found.")
-		print("Reload type not found.")
 		return false
 	end
+
+	Game.reload(reloadType)
+	player:sendTextMessage(MESSAGE_INFO_DESCR, string.format("Reloaded %s.", param:lower()))
 	return false
 end
 
-reload:separator(" ")
-reload:register()
+talk:separator(" ")
+talk:register()

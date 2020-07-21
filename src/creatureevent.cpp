@@ -1,6 +1,8 @@
 /**
+ * @file creatureevent.cpp
+ * 
  * The Forgotten Server - a free and open-source MMORPG server emulator
- * Copyright (C) 2019  Mark Samman <mark.samman@gmail.com>
+ * Copyright (C) 2020 Mark Samman <mark.samman@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -211,15 +213,6 @@ bool CreatureEvent::configureEvent(const pugi::xml_node& node)
 
 	loaded = true;
 	return true;
-}
-
-void CreatureEvents::removeInvalidEvents()
-{
-	for (auto it = creatureEvents.begin(); it != creatureEvents.end(); ++it) {
-		if (it->second.getScriptId() == 0) {
-			creatureEvents.erase(it->second.getName());
-		}
-	}
 }
 
 std::string CreatureEvent::getScriptEventName() const
@@ -434,9 +427,9 @@ bool CreatureEvent::executeAdvance(Player* player, skills_t skill, uint32_t oldL
 	return scriptInterface->callFunction(4);
 }
 
-void CreatureEvent::executeOnKill(Creature* creature, Creature* target, bool lastHit)
+void CreatureEvent::executeOnKill(Creature* creature, Creature* target)
 {
-	//onKill(creature, target, lastHit)
+	//onKill(creature, target)
 	if (!scriptInterface->reserveScriptEnv()) {
 		std::cout << "[Error - CreatureEvent::executeOnKill] Call stack overflow" << std::endl;
 		return;
@@ -452,8 +445,7 @@ void CreatureEvent::executeOnKill(Creature* creature, Creature* target, bool las
 	LuaScriptInterface::setCreatureMetatable(L, -1, creature);
 	LuaScriptInterface::pushUserdata<Creature>(L, target);
 	LuaScriptInterface::setCreatureMetatable(L, -1, target);
-	LuaScriptInterface::pushBoolean(L, lastHit);
-	scriptInterface->callVoidFunction(3);
+	scriptInterface->callVoidFunction(2);
 }
 
 void CreatureEvent::executeModalWindow(Player* player, uint32_t modalWindowId, uint8_t buttonId, uint8_t choiceId)

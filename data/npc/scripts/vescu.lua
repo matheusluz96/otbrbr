@@ -2,18 +2,10 @@ local keywordHandler = KeywordHandler:new()
 local npcHandler = NpcHandler:new(keywordHandler)
 NpcSystem.parseParameters(npcHandler)
 
-function onCreatureAppear(cid)
-	npcHandler:onCreatureAppear(cid)
-end
-function onCreatureDisappear(cid)
-	npcHandler:onCreatureDisappear(cid)
-end
-function onCreatureSay(cid, type, msg)
-	npcHandler:onCreatureSay(cid, type, msg)
-end
-function onThink()
-	npcHandler:onThink()
-end
+function onCreatureAppear(cid)			npcHandler:onCreatureAppear(cid)			end
+function onCreatureDisappear(cid)		npcHandler:onCreatureDisappear(cid)			end
+function onCreatureSay(cid, type, msg)		npcHandler:onCreatureSay(cid, type, msg)		end
+function onThink()				npcHandler:onThink()					end
 
 local message = {}
 
@@ -29,7 +21,7 @@ local config = {
 	['lizard scale'] = {storageValue = 3, text = {'Ah, are those - <hicks> - the 30 lizard scales?', 'I once had a girlfriend c-called L-lizzie. She had s-scales too.', 'This potion will become p-pretty scaly. I\'m not sure yet if I want to d-drink that. I think the 20 {fish fins} which come next won\'t really improve it. <hicks>'}, itemId = 5881, count = 30},
 	['20 fish fins'] = {storageValue = 4, text = {'Eww, is that disgusting smell coming from the 20 fish fins? <burps>', 'Not normal fish fins of course. We need <hicks> Quara fish fins. If you haven\'t h-heard about them, ask the - <hicks> - plorer society.', 'Alrrrrrrright! Thanks for the f-fish. Get me the 20 ounces of {vampire dust} now. I\'ll have another b-beer.'}, itemId = 5895, count = 20},
 	['fish fins'] = {storageValue = 4, text = {'Eww, is that disgusting smell coming from the 20 fish fins? <burps>', 'Not normal fish fins of course. We need <hicks> Quara fish fins. If you haven\'t h-heard about them, ask the - <hicks> - plorer society.', 'Alrrrrrrright! Thanks for the f-fish. Get me the 20 ounces of {vampire dust} now. I\'ll have another b-beer.'}, itemId = 5895, count = 20},
-	['fish fin'] = {storageValue = 4, text = {'Eww, is that disgusting smell coming from the 20 fish fins? <burps>', 'Not normal fish fins of course. We need <hicks> Quara fish fins. If you haven\'t h-heard about them, ask the - <hicks> - plorer society.', 'Alrrrrrrright! Thanks for the f-fish. Get me the 20 ounces of {vampire dust} now. I\'ll have another b-beer.'}, itemId = 5895, count = 20},
+	['fish fin'] = {storageValue = 4, text = {'Eww, is that disgusting smell coming from the 20 fish fins? <burps>', 'Not normal fish fins of course. We need <hicks> Quara fish fins. If you haven\'t h-heard about them, ask the - <hicks> - plorer society.', 'Alrrrrrrright! Thanks for the f-fish. Get me the 20 ounces of {vampire dust} now. I\'ll have another b-beer.'}, itemId = 5895, count = 20},	
 	['20 vampire dust'] = {storageValue = 5, text = {'Have you collected 20 ounces of vampire d-dust? <hicks>', 'Don\'t you think vampires have something - <hicks> - romantic about them? I think you need a b-blessed steak though to turn them into d-dust.', 'Tha-thank you. Trolls are good for something a-after all. Bring me the 10 ounces of {demon dust} now. <hicks>'}, itemId = 5905, count = 20},
 	['vampire dust'] = {storageValue = 5, text = {'Have you collected 20 ounces of vampire d-dust? <hicks>', 'Don\'t you think vampires have something - <hicks> - romantic about them? I think you need a b-blessed steak though to turn them into d-dust.', 'Tha-thank you. Trolls are good for something a-after all. Bring me the 10 ounces of {demon dust} now. <hicks>'}, itemId = 5905, count = 20},
 	['10 demon dust'] = {storageValue = 6, text = {'Have you slain enough d-demons to gather 10 ounces of demon dust? <hicks>', 'I like d-demons. They are just as pretty as flamingos. But you need a blessed stake or something to get demon dust. <hicks>', 'G-great. You\'re a reeeal k-killer like me, eh? I think I\'ll g-give you something fun when the potion is complete. But first, b-bring me {warrior\'s sweat}.'}, itemId = 5906, count = 10},

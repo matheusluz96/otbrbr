@@ -1,3 +1,3 @@
-function onUse(player, item, itemEx, fromPosition, target, toPosition, isHotkey)
-	return onUseShovel(player, item, itemEx, fromPosition, target, toPosition, isHotkey)
+function onUse(cid, item, fromPosition, target, toPosition)
+    return onUseShovel(player, item, fromPosition, target, toPosition, isHotkey)
 end

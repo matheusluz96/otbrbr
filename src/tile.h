@@ -1,6 +1,8 @@
 /**
+ * @file tile.h
+ * 
  * The Forgotten Server - a free and open-source MMORPG server emulator
- * Copyright (C) 2019  Mark Samman <mark.samman@gmail.com>
+ * Copyright (C) 2020 Mark Samman <mark.samman@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,8 +19,8 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef FS_TILE_H_96C7EE7CF8CD48E59D5D554A181F0C56
-#define FS_TILE_H_96C7EE7CF8CD48E59D5D554A181F0C56
+#ifndef OT_SRC_TILE_H_
+#define OT_SRC_TILE_H_
 
 #include <unordered_set>
 
@@ -266,7 +268,6 @@ class Tile : public Cylinder
 
 		void postAddNotification(Thing* thing, const Cylinder* oldParent, int32_t index, cylinderlink_t link = LINK_OWNER) override final;
 		void postRemoveNotification(Thing* thing, const Cylinder* newParent, int32_t index, cylinderlink_t link = LINK_OWNER) override final;
-
 		void internalAddThing(Thing* thing) override final;
 		void internalAddThing(uint32_t index, Thing* thing) override;
 
@@ -279,7 +280,6 @@ class Tile : public Cylinder
 		}
 
 		Item* getUseItem(int32_t index) const;
-    	Item* getDoorItem() const;
 
 		Item* getGround() const {
 			return ground;

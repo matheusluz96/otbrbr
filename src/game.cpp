@@ -1,6 +1,8 @@
 /**
+ * @file game.cpp
+ * 
  * The Forgotten Server - a free and open-source MMORPG server emulator
- * Copyright (C) 2019  Mark Samman <mark.samman@gmail.com>
+ * Copyright (C) 2020 Mark Samman <mark.samman@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -43,7 +45,6 @@
 #include "script.h"
 #include "modules.h"
 #include "imbuements.h"
-#include "account.hpp"
 
 extern ConfigManager g_config;
 extern Actions* g_actions;
@@ -121,8 +122,11 @@ void Game::setGameState(GameState_t newState)
 	gameState = newState;
 	switch (newState) {
 		case GAME_STATE_INIT: {
-			loadItemsPrice();
+			loadExperienceStages();
+			loadSkillStages();
+			loadMagicLevelStages();
 
+			loadItemsPrice();
 			groups.load();
 			g_chat->load();
 
@@ -216,7 +220,7 @@ bool Game::loadItemsPrice()
 	std::ostringstream query, query2;
 	query << "SELECT DISTINCT `itemtype` FROM `market_offers`;";
 
-	Database& db = Database::getInstance();
+	Database& db = Database::getInstance();	
 	DBResult_ptr result = db.storeQuery(query.str());
 	if (!result) {
 		return false;
@@ -242,17 +246,12 @@ bool Game::loadMainMap(const std::string& filename)
 {
 	Monster::despawnRange = g_config.getNumber(ConfigManager::DEFAULT_DESPAWNRANGE);
 	Monster::despawnRadius = g_config.getNumber(ConfigManager::DEFAULT_DESPAWNRADIUS);
-	return map.loadMap("data/world/" + filename + ".otbm", true, true);
+	return map.loadMap("data/world/" + filename + ".otbm", true);
 }
 
 void Game::loadMap(const std::string& path)
 {
-	map.loadMap(path, false, false);
-}
-
-bool Game::loadCustomSpawnFile(const std::string& fileName)
-{
-	return map.spawns.loadCustomSpawnXml(fileName);
+	map.loadMap(path, false);
 }
 
 Cylinder* Game::internalGetCylinder(Player* player, const Position& pos) const
@@ -312,18 +311,6 @@ Thing* Game::internalGetThing(Player* player, const Position& pos, int32_t index
 				}
 				break;
 			}
-
-      		case STACKPOS_FIND_THING: {
-        		thing = tile->getUseItem(index);
-       			if (!thing) {
-          			thing = tile->getDoorItem();
-        		}
-
-        		if (!thing) {
-          			thing = tile->getTopDownItem();
-        		}
-        		break;
-      		}
 
 			default: {
 				thing = nullptr;
@@ -596,10 +583,14 @@ bool Game::internalPlaceCreature(Creature* creature, const Position& pos, bool e
 	return true;
 }
 
-bool Game::placeCreature(Creature* creature, const Position& pos, bool extendedPos /*=false*/, bool forced /*= false*/)
+bool Game::placeCreature(Creature* creature, const Position& pos, bool extendedPos /*=false*/, bool forced /*= false*/, Creature* master)
 {
 	if (!internalPlaceCreature(creature, pos, extendedPos, forced)) {
 		return false;
+	}
+
+	if (master) {
+		creature->setMaster(master);
 	}
 
 	SpectatorHashSet spectators;
@@ -671,19 +662,16 @@ bool Game::removeCreature(Creature* creature, bool isLogout/* = true*/)
 	return true;
 }
 
-void Game::executeDeath(uint32_t creatureId)
-{
-	Creature* creature = getCreatureByID(creatureId);
-	if (creature && !creature->isRemoved()) {
-		creature->onDeath();
-	}
-}
-
 void Game::playerMoveThing(uint32_t playerId, const Position& fromPos,
-                           uint16_t spriteId, uint8_t fromStackPos, const Position& toPos, uint8_t count)
+						   uint16_t spriteId, uint8_t fromStackPos, const Position& toPos, uint8_t count)
 {
 	Player* player = getPlayerByID(playerId);
 	if (!player) {
+		return;
+	}
+
+	if (player->hasCondition(CONDITION_EXHAUST, 1)) {
+		player->sendTextMessage(MESSAGE_STATUS_SMALL, "You can't move item very fast.");
 		return;
 	}
 
@@ -712,8 +700,9 @@ void Game::playerMoveThing(uint32_t playerId, const Position& fromPos,
 		}
 
 		if (Position::areInRange<1, 1, 0>(movingCreature->getPosition(), player->getPosition())) {
-			SchedulerTask* task = createSchedulerTask(g_config.getNumber(ConfigManager::PUSH_DELAY), std::bind(&Game::playerMoveCreatureByID, this, player->getID(),
-			                                  movingCreature->getID(), movingCreature->getPosition(), tile->getPosition()));
+			SchedulerTask* task = createSchedulerTask(1000,
+								  std::bind(&Game::playerMoveCreatureByID, this, player->getID(),
+											  movingCreature->getID(), movingCreature->getPosition(), tile->getPosition()));
 			player->setNextActionTask(task);
 		} else {
 			playerMoveCreature(player, movingCreature, movingCreature->getPosition(), tile);
@@ -726,6 +715,9 @@ void Game::playerMoveThing(uint32_t playerId, const Position& fromPos,
 		}
 
 		playerMoveItem(player, fromPos, spriteId, fromStackPos, toPos, count, thing->getItem(), toCylinder);
+	}
+	if (Condition* moveItem = Condition::createCondition(CONDITIONID_DEFAULT, CONDITION_EXHAUST, 50, 0, false, 1)) {
+		player->addCondition(moveItem);
 	}
 }
 
@@ -766,8 +758,9 @@ void Game::playerMoveCreature(Player* player, Creature* movingCreature, const Po
 		//need to walk to the creature first before moving it
 		std::forward_list<Direction> listDir;
 		if (player->getPathTo(movingCreatureOrigPos, listDir, 0, 1, true, true)) {
-			g_dispatcher.addTask(createTask(std::bind(&Game::playerAutoWalk, this, player->getID(), listDir)));
-			SchedulerTask* task = createSchedulerTask(g_config.getNumber(ConfigManager::PUSH_DISTANCE_DELAY), std::bind(&Game::playerMoveCreatureByID, this,
+			g_dispatcher.addTask(createTask(std::bind(&Game::playerAutoWalk,
+											this, player->getID(), listDir)));
+			SchedulerTask* task = createSchedulerTask(1500, std::bind(&Game::playerMoveCreatureByID, this,
 				player->getID(), movingCreature->getID(), movingCreatureOrigPos, toTile->getPosition()));
 			player->setNextWalkActionTask(task);
 		} else {
@@ -1098,7 +1091,6 @@ void Game::playerMoveItem(Player* player, const Position& fromPos,
 			toIndex = static_cast<uint8_t>(toPos.y);
 		}
 	}
-
 	if (item->isWrapable()){
 		HouseTile* toHouseTile = dynamic_cast<HouseTile*>(map.getTile(mapToPos));
 		HouseTile* fromHouseTile = dynamic_cast<HouseTile*>(map.getTile(mapFromPos));
@@ -1290,6 +1282,11 @@ ReturnValue Game::internalMoveItem(Cylinder* fromCylinder, Cylinder* toCylinder,
 		}
 
 	 	if (Player* player = actor->getPlayer()) {
+	 		if (player->getProtocolVersion() < 1140 || player->operatingSystem != CLIENTOS_NEW_WINDOWS) {
+				player->updateLootTracker(item);
+	 			return ret;
+			}
+
 			const ItemType& it = Item::items[fromCylinder->getItem()->getID()];
 			if (it.id <= 0) {
 				return ret;
@@ -1408,6 +1405,7 @@ ReturnValue Game::internalRemoveItem(Item* item, int32_t count /*= -1*/, bool te
 	if (cylinder == nullptr) {
 		return RETURNVALUE_NOTPOSSIBLE;
 	}
+
 	Tile* fromTile = cylinder->getTile();
 	if (fromTile) {
 		auto it = browseFields.find(fromTile);
@@ -1415,32 +1413,38 @@ ReturnValue Game::internalRemoveItem(Item* item, int32_t count /*= -1*/, bool te
 			cylinder = fromTile;
 		}
 	}
+
 	if (count == -1) {
 		count = item->getItemCount();
 	}
+
 	//check if we can remove this item
 	ReturnValue ret = cylinder->queryRemove(*item, count, flags | FLAG_IGNORENOTMOVEABLE);
 	if (ret != RETURNVALUE_NOERROR) {
 		return ret;
 	}
+
 	if (!item->canRemove()) {
 		return RETURNVALUE_NOTPOSSIBLE;
 	}
+
 	if (!test) {
 		int32_t index = cylinder->getThingIndex(item);
+
 		//remove the item
 		cylinder->removeThing(item, count);
 
 		if (item->isRemoved()) {
-			item->onRemoved();
+			ReleaseItem(item);
 			if (item->canDecay()) {
 				decayItems->remove(item);
 			}
-			ReleaseItem(item);
 		}
 
 		cylinder->postRemoveNotification(item, nullptr, index);
 	}
+
+	item->onRemoved();
 	return RETURNVALUE_NOERROR;
 }
 
@@ -1517,21 +1521,27 @@ bool Game::removeMoney(Cylinder* cylinder, uint64_t money, uint32_t flags /*= 0*
 	if (cylinder == nullptr) {
 		return false;
 	}
+
 	if (money == 0) {
 		return true;
 	}
+
 	std::vector<Container*> containers;
+
 	std::multimap<uint32_t, Item*> moneyMap;
 	uint64_t moneyCount = 0;
+
 	for (size_t i = cylinder->getFirstIndex(), j = cylinder->getLastIndex(); i < j; ++i) {
 		Thing* thing = cylinder->getThing(i);
 		if (!thing) {
 			continue;
 		}
+
 		Item* item = thing->getItem();
 		if (!item) {
 			continue;
 		}
+
 		Container* container = item->getContainer();
 		if (container) {
 			containers.push_back(container);
@@ -1543,6 +1553,7 @@ bool Game::removeMoney(Cylinder* cylinder, uint64_t money, uint32_t flags /*= 0*
 			}
 		}
 	}
+
 	size_t i = 0;
 	while (i < containers.size()) {
 		Container* container = containers[i++];
@@ -1568,7 +1579,7 @@ bool Game::removeMoney(Cylinder* cylinder, uint64_t money, uint32_t flags /*= 0*
 
 	if (moneyCount + balance < money) {
 		return false;
-	}
+    }
 
 	for (const auto& moneyEntry : moneyMap) {
 		Item* item = moneyEntry.second;
@@ -1578,6 +1589,7 @@ bool Game::removeMoney(Cylinder* cylinder, uint64_t money, uint32_t flags /*= 0*
 		} else if (moneyEntry.first > money) {
 			const uint32_t worth = moneyEntry.first / item->getItemCount();
 			const uint32_t removeCount = std::ceil(money / static_cast<double>(worth));
+
 			addMoney(cylinder, (worth * removeCount) - money, flags);
 			internalRemoveItem(item, removeCount);
 			break;
@@ -2189,7 +2201,7 @@ void Game::playerUseItem(uint32_t playerId, const Position& pos, uint8_t stackPo
 		return;
 	}
 
-	Thing* thing = internalGetThing(player, pos, stackPos, spriteId, STACKPOS_FIND_THING);
+	Thing* thing = internalGetThing(player, pos, stackPos, spriteId, STACKPOS_USEITEM);
 	if (!thing) {
 		player->sendCancelMessage(RETURNVALUE_NOTPOSSIBLE);
 		return;
@@ -2438,6 +2450,7 @@ void Game::playerRotateItem(uint32_t playerId, const Position& pos, uint8_t stac
 	}
 }
 
+
 void Game::playerWrapableItem(uint32_t playerId, const Position& pos, uint8_t stackPos, const uint16_t spriteId)
 {
 	Player* player = getPlayerByID(playerId);
@@ -2463,12 +2476,13 @@ void Game::playerWrapableItem(uint32_t playerId, const Position& pos, uint8_t st
 		player->sendCancelMessage("You may construct this only inside a house.");
 		return;
 	}
+
 	if (houseTile->getHouse() != house) {
 		player->sendCancelMessage("Only owners can wrap/unwrap inside a house.");
 			return;
 	}
 
-	if (!item || item->getClientID() != spriteId || item->hasAttribute(ITEM_ATTRIBUTE_UNIQUEID) || (!item->isWrapable() && item->getID() != 26054)) {
+	if (!item || item->getClientID() != spriteId || item->hasAttribute(ITEM_ATTRIBUTE_UNIQUEID)) {
 		player->sendCancelMessage(RETURNVALUE_NOTPOSSIBLE);
 		return;
 	}
@@ -2488,54 +2502,74 @@ void Game::playerWrapableItem(uint32_t playerId, const Position& pos, uint8_t st
 		return;
 	}
 
+	const ItemType& iiType = Item::items[item->getID()];
+	uint16_t newWrapId = Item::items[item->getID()].wrapableTo;
+
+	if ((item->getHoldingPlayer() && item->getID() == newWrapId) || (tile->hasFlag(TILESTATE_IMMOVABLEBLOCKSOLID) && !item->hasProperty(CONST_PROP_IMMOVABLEBLOCKSOLID))) {
+		player->sendCancelMessage("You can only wrap/unwrap in the floor.");
+		return;
+	}
+
+	std::string itemName = item->getName();
+
+	// It is not possible to unwrap containers with one or more items inside.
 	const Container* container = item->getContainer();
 	if (container && container->getItemHoldingCount() > 0) {
 		player->sendCancelMessage(RETURNVALUE_NOTPOSSIBLE);
 		return;
 	}
 
-	if ((item->getHoldingPlayer() && item->getID() == 26054) || (tile->hasFlag(TILESTATE_IMMOVABLEBLOCKSOLID) && !item->hasProperty(CONST_PROP_IMMOVABLEBLOCKSOLID))) {
-		player->sendCancelMessage("You can only wrap/unwrap in the floor.");
-		return;
-	}
-
-	std::string itemName = item->getName();
-	const ItemAttributes::CustomAttribute* attr = item->getCustomAttribute("unWrapId");
-	uint16_t unWrapId = 0;
-	if (attr != nullptr) {
-		uint32_t tmp = static_cast<uint32_t>(boost::get<int64_t>(attr->value));
-		unWrapId = (uint16_t)tmp;
-	}
-
-		if (item->isWrapable() && item->getID() != TRANSFORM_BOX_ID) {
+	// FOR ITEMS THAT DO NOT LOSE ACTIONID TO TRANSFORM
+	if (!iiType.wrapContainer) {
+		if (newWrapId != 0) {
 			uint16_t hiddenCharges = 0;
 			if (isCaskItem(item->getID())) {
 				hiddenCharges = item->getSubType();
 			}
-			uint16_t oldItemID = item->getID();
-			addMagicEffect(item->getPosition(), CONST_ME_POFF);
-			Item* newItem = transformItem(item, 26054);
-			ItemAttributes::CustomAttribute val;
-			val.set<int64_t>(oldItemID);
-			std::string key = "unWrapId";
-			newItem->setCustomAttribute(key, val);
+
+			transformItem(item, newWrapId)->setActionId(item->getID());
 			item->setSpecialDescription("Unwrap it in your own house to create a <" + itemName + ">.");
-			if (hiddenCharges > 0) {
+			if (hiddenCharges > 0) { //saving the cask charges
 				item->setDate(hiddenCharges);
 			}
+			addMagicEffect(item->getPosition(), CONST_ME_POFF);
 			startDecay(item);
 		}
-		else if (item->getID() == TRANSFORM_BOX_ID && unWrapId != 0) {
+
+		if ((item->getActionId() != 0) && !newWrapId) {
 			uint16_t hiddenCharges = item->getDate();
-			item->removeAttribute(ITEM_ATTRIBUTE_DESCRIPTION);
+			uint16_t boxActionId = item->getActionId();
+			transformItem(item, item->getActionId()); // transforms the item
+			item->setSpecialDescription("Wrap it in your own house to create a <" + itemName + ">.");
 			addMagicEffect(item->getPosition(), CONST_ME_POFF);
-			transformItem(item, unWrapId);
-			if (hiddenCharges > 0 && isCaskItem(unWrapId)) {
+			if (hiddenCharges > 0 && isCaskItem(boxActionId)) {
 				item->setSubType(hiddenCharges);
 			}
-			item->removeCustomAttribute("unWrapId");
 			startDecay(item);
 		}
+	} else {
+		// FOR ITEMS LOSING ACTIONID TO TRANSFORM
+		if (iiType.wrapContainer) {
+			Item* wrapContainer = transformItem(item, newWrapId);
+			if (newWrapId != 0) {
+				wrapContainer->setActionId(item->getID()); // Then you have to make a box adc if you have aid
+				wrapContainer->setSpecialDescription("Unwrap it in your own house to create a <" + itemName + ">.");
+				addMagicEffect(wrapContainer->getPosition(), CONST_ME_POFF);
+				startDecay(item);
+			}
+
+			if ((item->getActionId() != 0) && !newWrapId) {
+				uint16_t hiddenCharges = item->getDate();
+				uint16_t boxActionId = item->getActionId();
+				transformItem(item, item->getActionId())->setSpecialDescription("Wrap it in your own house to create a <" + itemName + ">.");
+				addMagicEffect(item->getPosition(), CONST_ME_POFF);
+				if (hiddenCharges > 0 && isCaskItem(boxActionId)) {
+					item->setSubType(hiddenCharges);
+				}
+				startDecay(item);
+			}
+		}
+	}
 }
 
 void Game::playerWriteItem(uint32_t playerId, uint32_t windowTextId, const std::string& text)
@@ -2708,6 +2742,15 @@ void Game::playerRequestTrade(uint32_t playerId, const Position& pos, uint8_t st
 	if (!tradePartner || tradePartner == player) {
 		player->sendTextMessage(MESSAGE_INFO_DESCR, "Sorry, not possible.");
 		return;
+	}
+
+	if (player->hasCondition(CONDITION_EXHAUST, 8)) {
+		player->sendTextMessage(MESSAGE_STATUS_SMALL, "You can't trade very fast.");
+		return;
+	}
+
+	if (Condition* conditiontrade = Condition::createCondition(CONDITIONID_DEFAULT, CONDITION_EXHAUST, 300, 0, false, 8)) {
+		player->addCondition(conditiontrade);
 	}
 
 	if (!Position::areInRange<2, 2, 0>(tradePartner->getPosition(), player->getPosition())) {
@@ -3207,6 +3250,15 @@ void Game::playerLookAt(uint32_t playerId, const Position& pos, uint8_t stackPos
 		return;
 	}
 
+	if (player->hasCondition(CONDITION_EXHAUST, 7)) {
+		player->sendTextMessage(MESSAGE_STATUS_SMALL, "You can't look very fast.");
+		return;
+	}
+
+	if (Condition* conditionlook = Condition::createCondition(CONDITIONID_DEFAULT, CONDITION_EXHAUST, 100, 0, false, 7)) {
+		player->addCondition(conditionlook);
+	}
+
 	Thing* thing = internalGetThing(player, pos, stackPos, 0, STACKPOS_LOOK);
 	if (!thing) {
 		player->sendCancelMessage(RETURNVALUE_NOTPOSSIBLE);
@@ -3231,6 +3283,10 @@ void Game::playerLookAt(uint32_t playerId, const Position& pos, uint8_t stackPos
 		lookDistance = -1;
 	}
 
+	if(Condition* conditionlook = Condition::createCondition(CONDITIONID_DEFAULT, CONDITION_EXHAUST, 1000, 0, false, 1)) {
+		player->addCondition(conditionlook);
+	}
+
 	g_events->eventPlayerOnLook(player, pos, thing, stackPos, lookDistance);
 }
 
@@ -3239,6 +3295,15 @@ void Game::playerLookInBattleList(uint32_t playerId, uint32_t creatureId)
 	Player* player = getPlayerByID(playerId);
 	if (!player) {
 		return;
+	}
+
+	if (player->hasCondition(CONDITION_EXHAUST, 7)) {
+		player->sendTextMessage(MESSAGE_STATUS_SMALL, "You can't look very fast.");
+		return;
+	}
+
+	if (Condition* conditionlook = Condition::createCondition(CONDITIONID_DEFAULT, CONDITION_EXHAUST, 100, 0, false, 7)) {
+		player->addCondition(conditionlook);
 	}
 
 	Creature* creature = getCreatureByID(creatureId);
@@ -3406,7 +3471,7 @@ void Game::playerApplyImbuement(uint32_t playerId, uint32_t imbuementid, uint8_t
 	}
 
 	if (!player->inImbuing()) {
-		return;
+		return;	
 	}
 
 	Imbuement* imbuement = g_imbuements->getImbuement(imbuementid);
@@ -3419,10 +3484,6 @@ void Game::playerApplyImbuement(uint32_t playerId, uint32_t imbuementid, uint8_t
 		return;
 	}
 
-  if (item->getTopParent() != player || item->getParent() == player) {
-    return;
-  }
-
 	g_events->eventPlayerOnApplyImbuement(player, imbuement, item, slot, protectionCharm);
 }
 
@@ -3434,7 +3495,7 @@ void Game::playerClearingImbuement(uint32_t playerid, uint8_t slot)
 	}
 
 	if (!player->inImbuing()) {
-		return;
+		return;	
 	}
 
 	Item* item = player->imbuing;
@@ -3505,6 +3566,15 @@ void Game::playerChangeOutfit(uint32_t playerId, Outfit_t outfit)
 	Player* player = getPlayerByID(playerId);
 	if (!player) {
 		return;
+	}
+
+	if (player->hasCondition(CONDITION_EXHAUST, 7)) {
+		player->sendTextMessage(MESSAGE_STATUS_SMALL, "You can't change outfit very fast.");
+		return;
+	}
+
+	if (Condition* conditionoutfit = Condition::createCondition(CONDITIONID_DEFAULT, CONDITION_EXHAUST, 100, 0, false, 7)) {
+		player->addCondition(conditionoutfit);
 	}
 
 	const Outfit* playerOutfit = Outfits::getInstance().getOutfitByLookType(player->getSex(), outfit.lookType);
@@ -3696,7 +3766,7 @@ bool Game::playerYell(Player* player, const std::string& text)
 		return false;
 	}
 
-	if (player->getAccountType() < account::AccountType::ACCOUNT_TYPE_GAMEMASTER) {
+	if (player->getAccountType() < ACCOUNT_TYPE_GAMEMASTER) {
 		Condition* condition = Condition::createCondition(CONDITIONID_DEFAULT, CONDITION_YELLTICKS, 30000, 0);
 		player->addCondition(condition);
 	}
@@ -3714,7 +3784,7 @@ bool Game::playerSpeakTo(Player* player, SpeakClasses type, const std::string& r
 		return false;
 	}
 
-	if (type == TALKTYPE_PRIVATE_RED_TO && (player->hasFlag(PlayerFlag_CanTalkRedPrivate) || player->getAccountType() >= account::AccountType::ACCOUNT_TYPE_GAMEMASTER)) {
+	if (type == TALKTYPE_PRIVATE_RED_TO && (player->hasFlag(PlayerFlag_CanTalkRedPrivate) || player->getAccountType() >= ACCOUNT_TYPE_GAMEMASTER)) {
 		type = TALKTYPE_PRIVATE_RED_FROM;
 	} else {
 		type = TALKTYPE_PRIVATE_FROM;
@@ -3737,6 +3807,15 @@ void Game::playerSpeakToNpc(Player* player, const std::string& text)
 {
 	SpectatorHashSet spectators;
 	map.getSpectators(spectators, player->getPosition());
+	if (player->hasCondition(CONDITION_EXHAUST, 2)) {
+		player->sendTextMessage(MESSAGE_STATUS_SMALL, "You can't speak very fast.");
+		return;
+	}
+
+	if (Condition* conditionnpc = Condition::createCondition(CONDITIONID_DEFAULT, CONDITION_EXHAUST, 100, 0, false, 2)) {
+		player->addCondition(conditionnpc);
+	}
+
 	for (Creature* spectator : spectators) {
 		if (spectator->getNpc()) {
 			spectator->onCreatureSay(player, TALKTYPE_PRIVATE_PN, text);
@@ -3814,9 +3893,6 @@ bool Game::internalCreatureSay(Creature* creature, SpeakClasses type, const std:
 	//event method
 	for (Creature* spectator : spectators) {
 		spectator->onCreatureSay(creature, type, text);
-		if (creature != spectator) {
-			g_events->eventCreatureOnHear(spectator, creature, text, type);
-		}
 	}
 	return true;
 }
@@ -3880,6 +3956,8 @@ void Game::checkCreatures(size_t index)
 				creature->onThink(EVENT_CREATURE_THINK_INTERVAL);
 				creature->onAttacking(EVENT_CREATURE_THINK_INTERVAL);
 				creature->executeConditions(EVENT_CREATURE_THINK_INTERVAL);
+			} else {
+				creature->onDeath();
 			}
 			++it;
 		} else {
@@ -4029,7 +4107,7 @@ void Game::combatGetTypeInfo(CombatType_t combatType, Creature* target, TextColo
 				case RACE_VENOM:
 					color = TEXTCOLOR_LIGHTGREEN;
 					effect = CONST_ME_HITBYPOISON;
-					splash = Item::CreateItem(ITEM_SMALLSPLASH, FLUID_SLIME);
+					splash = Item::CreateItem(ITEM_SMALLSPLASH, FLUID_GREEN);
 					break;
 				case RACE_BLOOD:
 					color = TEXTCOLOR_RED;
@@ -4166,7 +4244,7 @@ bool Game::combatChangeHealth(Creature* attacker, Creature* target, CombatDamage
 			TextMessage message;
 			message.position = targetPos;
 			message.primary.value = realHealthChange;
-			message.primary.color = TEXTCOLOR_PASTELRED;
+			message.primary.color = TEXTCOLOR_MAYARED;
 
 			SpectatorHashSet spectators;
 			map.getSpectators(spectators, targetPos, false, true);
@@ -4240,6 +4318,7 @@ bool Game::combatChangeHealth(Creature* attacker, Creature* target, CombatDamage
 		if (!isEvent) {
 			g_events->eventCreatureOnDrainHealth(target, attacker, damage.primary.type, damage.primary.value, damage.secondary.type, damage.secondary.value, message.primary.color, message.secondary.color);
 		}
+
 		int32_t healthChange = damage.primary.value + damage.secondary.value;
 		if (healthChange == 0) {
 			return true;
@@ -4261,6 +4340,7 @@ bool Game::combatChangeHealth(Creature* attacker, Creature* target, CombatDamage
 						for (CreatureEvent* creatureEvent : events) {
 							creatureEvent->executeManaChange(target, attacker, damage);
 						}
+
 						healthChange = damage.primary.value + damage.secondary.value;
 						if (healthChange == 0) {
 							return true;
@@ -4302,6 +4382,9 @@ bool Game::combatChangeHealth(Creature* attacker, Creature* target, CombatDamage
 							ss << " due to your own attack.";
 						} else {
 							ss << " due to an attack by " << attacker->getNameDescription() << '.';
+							if (tmpPlayer->hasActivePreyBonus(BONUS_DAMAGE_REDUCTION, attacker)) {
+								ss << " (active prey bonus)";
+							}
 						}
 						message.type = MESSAGE_DAMAGE_RECEIVED;
 						message.text = ss.str();
@@ -4326,7 +4409,7 @@ bool Game::combatChangeHealth(Creature* attacker, Creature* target, CombatDamage
 					tmpPlayer->sendTextMessage(message);
 				}
 
-				applyImbuementEffects(attackerPlayer, manaDamage);
+				applyImbuementEffects(attackerPlayer, damage, manaDamage);
 				damage.primary.value -= manaDamage;
 				if (damage.primary.value < 0) {
 					damage.secondary.value = std::max<int32_t>(0, damage.secondary.value + damage.primary.value);
@@ -4392,7 +4475,7 @@ bool Game::combatChangeHealth(Creature* attacker, Creature* target, CombatDamage
 				CombatDamage tmpDamage;
 				tmpDamage.origin = ORIGIN_SPELL;
 				tmpDamage.primary.type = COMBAT_HEALING;
-				tmpDamage.primary.value = std::round(realDamage * (attackerPlayer->getSkillLevel(SKILL_LIFE_LEECH_AMOUNT) /100.));
+				tmpDamage.primary.value = std::round((realDamage * (0.9 + (damage.affected / 10.)) * (attackerPlayer->getSkillLevel(SKILL_LIFE_LEECH_AMOUNT) /100.)) / damage.affected);
 
 				Combat::doCombatHealth(nullptr, attackerPlayer, tmpDamage, tmpParams);
 			}
@@ -4403,7 +4486,7 @@ bool Game::combatChangeHealth(Creature* attacker, Creature* target, CombatDamage
 				CombatDamage tmpDamage;
 				tmpDamage.origin = ORIGIN_SPELL;
 				tmpDamage.primary.type = COMBAT_MANADRAIN;
-				tmpDamage.primary.value = std::round(realDamage * (attackerPlayer->getSkillLevel(SKILL_MANA_LEECH_AMOUNT) /100.));
+				tmpDamage.primary.value = std::round((realDamage * (0.9 + (damage.affected / 10.)) * (attackerPlayer->getSkillLevel(SKILL_MANA_LEECH_AMOUNT) /100.)) / damage.affected);
 
 				Combat::doCombatMana(nullptr, attackerPlayer, tmpDamage, tmpParams);
 			}
@@ -4450,6 +4533,9 @@ bool Game::combatChangeHealth(Creature* attacker, Creature* target, CombatDamage
 				if (tmpPlayer == attackerPlayer && attackerPlayer != targetPlayer) {
 					ss.str({});
 					ss << ucfirst(target->getNameDescription()) << " loses " << damageString << " due to your attack.";
+					if (tmpPlayer->hasActivePreyBonus(BONUS_DAMAGE_BOOST, target)) {
+						ss << " (active prey bonus)";
+					}
 					message.type = MESSAGE_DAMAGE_DEALT;
 					message.text = ss.str();
 				} else if (tmpPlayer == targetPlayer) {
@@ -4461,6 +4547,9 @@ bool Game::combatChangeHealth(Creature* attacker, Creature* target, CombatDamage
 						ss << " due to your own attack.";
 					} else {
 						ss << " due to an attack by " << attacker->getNameDescription() << '.';
+						if (tmpPlayer->hasActivePreyBonus(BONUS_DAMAGE_REDUCTION, attacker)) {
+							ss << " (active prey bonus)";
+						}
 					}
 					message.type = MESSAGE_DAMAGE_RECEIVED;
 					message.text = ss.str();
@@ -4647,6 +4736,9 @@ bool Game::combatChangeMana(Creature* attacker, Creature* target, CombatDamage& 
 					ss << " due to your own attack.";
 				} else {
 					ss << " mana due to an attack by " << attacker->getNameDescription() << '.';
+					if (tmpPlayer->hasActivePreyBonus(BONUS_DAMAGE_REDUCTION, attacker)) {
+						ss << " (active prey bonus)";
+					}
 				}
 				message.type = MESSAGE_DAMAGE_RECEIVED;
 				message.text = ss.str();
@@ -4854,8 +4946,7 @@ void Game::checkImbuements()
 		}
 
 		Player* player = item->getParent()->getCreature()->getPlayer();
-		const ItemType& itemType = Item::items[item->getID()];
-		if (!player->hasCondition(CONDITION_INFIGHT) && !itemType.isContainer()) {
+		if (!player->hasCondition(CONDITION_INFIGHT)) {
 			it++;
 			continue;
 		}
@@ -4905,7 +4996,7 @@ void Game::checkImbuements()
 	cleanup();
 }
 
-void Game::applyImbuementEffects(Creature * attacker, int32_t realDamage)
+void Game::applyImbuementEffects(Creature * attacker, CombatDamage & damage, int32_t realDamage)
 {
 	Player *attackerPlayer = (Player *)attacker;
 	if (attackerPlayer) {
@@ -4914,7 +5005,7 @@ void Game::applyImbuementEffects(Creature * attacker, int32_t realDamage)
 			CombatDamage tmpDamage;
 			tmpDamage.origin = ORIGIN_SPELL;
 			tmpDamage.primary.type = COMBAT_HEALING;
-			tmpDamage.primary.value = std::round(realDamage * (attackerPlayer->getSkillLevel(SKILL_LIFE_LEECH_AMOUNT) / 100.));
+			tmpDamage.primary.value = std::round((realDamage * (0.9 + (damage.affected / 10.)) * (attackerPlayer->getSkillLevel(SKILL_LIFE_LEECH_AMOUNT) / 100.)) / damage.affected);
 
 			Combat::doCombatHealth(nullptr, attackerPlayer, tmpDamage, tmpParams);
 		}
@@ -4925,7 +5016,7 @@ void Game::applyImbuementEffects(Creature * attacker, int32_t realDamage)
 			CombatDamage tmpDamage;
 			tmpDamage.origin = ORIGIN_SPELL;
 			tmpDamage.primary.type = COMBAT_MANADRAIN;
-			tmpDamage.primary.value = std::round(realDamage * (attackerPlayer->getSkillLevel(SKILL_MANA_LEECH_AMOUNT) / 100.));
+			tmpDamage.primary.value = std::round((realDamage * (0.9 + (damage.affected / 10.)) * (attackerPlayer->getSkillLevel(SKILL_MANA_LEECH_AMOUNT) / 100.)) / damage.affected);
 
 			Combat::doCombatMana(nullptr, attackerPlayer, tmpDamage, tmpParams);
 		}
@@ -4982,6 +5073,11 @@ void Game::checkLight()
 
 		for (const auto& it : players) {
 			it.second->sendWorldLight(lightInfo);
+			it.second->sendTibiaTime(lightHour);
+		}
+	} else {
+		for (const auto& it : players) {
+			it.second->sendTibiaTime(lightHour);
 		}
 	}
 }
@@ -5003,6 +5099,7 @@ void Game::shutdown()
 {
 	std::cout << "Shutting down..." << std::flush;
 
+	saveGameState();
 	g_scheduler.shutdown();
 	g_databaseTasks.shutdown();
 	g_dispatcher.shutdown();
@@ -5101,6 +5198,18 @@ void Game::updatePlayerShield(Player* player)
 	}
 }
 
+void Game::updatePlayerHelpers(const Player& player)
+{
+	uint32_t creatureId = player.getID();
+	uint16_t helpers = player.getHelpers();
+
+	SpectatorHashSet spectators;
+	map.getSpectators(spectators, player.getPosition(), true, true);
+	for (Creature* spectator : spectators) {
+		spectator->getPlayer()->sendCreatureHelpers(creatureId, helpers);
+	}
+}
+
 void Game::updateCreatureType(Creature* creature)
 {
 	const Player* masterPlayer = nullptr;
@@ -5125,47 +5234,37 @@ void Game::updateCreatureType(Creature* creature)
 	}
 }
 
-void Game::updatePremium(account::Account& account)
+void Game::updatePremium(Account& account)
 {
-  bool save = false;
-  time_t timeNow = time(nullptr);
-  uint32_t rem_days = 0;
-  time_t last_day;
-  account.GetPremiumRemaningDays(&rem_days);
-  account.GetPremiumLastDay(&last_day);
-  if (rem_days != 0)
-  {
-    if (last_day == 0) {
-			account.SetPremiumLastDay(timeNow);
+	bool save = false;
+	time_t timeNow = time(nullptr);
+
+	if (account.premiumDays != 0 && account.premiumDays != std::numeric_limits<uint16_t>::max()) {
+		if (account.lastDay == 0) {
+			account.lastDay = timeNow;
 			save = true;
 		} else {
-			uint32_t days = (timeNow - last_day) / 86400;
+			uint32_t days = (timeNow - account.lastDay) / 86400;
 			if (days > 0) {
-				if (days >= rem_days) {
-					if(!account.SetPremiumRemaningDays(0) || !account.SetPremiumLastDay(0)) {
-            std::cout << "Failed to set account premium days!" << std::endl;
-          }
+				if (days >= account.premiumDays) {
+					account.premiumDays = 0;
+					account.lastDay = 0;
 				} else {
-					account.SetPremiumRemaningDays((rem_days - days));
-					time_t remainder = (timeNow - last_day) % 86400;
-					account.SetPremiumLastDay(timeNow - remainder);
+					account.premiumDays -= days;
+					time_t remainder = (timeNow - account.lastDay) % 86400;
+					account.lastDay = timeNow - remainder;
 				}
 
 				save = true;
 			}
 		}
-  }
-  else if (last_day != 0)
-  {
-    account.SetPremiumLastDay(0);
+	} else if (account.lastDay != 0) {
+		account.lastDay = 0;
 		save = true;
-  }
+	}
 
-  if (save && !account.SaveAccountDB()) {
-    std::string name;
-    account.GetName(&name);
-		std::cout << "> ERROR: Failed to save account: " << name << "!"
-              << std::endl;
+	if (save && !IOLoginData::saveAccount(account)) {
+		std::cout << "> ERROR: Failed to save account: " << account.name << "!" << std::endl;
 	}
 }
 
@@ -5237,6 +5336,207 @@ void Game::loadPlayersRecord()
 	} else {
 		db.executeQuery("INSERT INTO `server_config` (`config`, `value`) VALUES ('players_record', '0')");
 	}
+}
+
+double Game::getExperienceStage(uint32_t level)
+{
+	if (!stagesEnabled) {
+		return g_config.getNumber(ConfigManager::RATE_EXPERIENCE);
+	}
+
+	if (useLastStageLevel && level >= lastStageLevel) {
+		return stages[lastStageLevel];
+	}
+
+	return stages[level];
+}
+
+bool Game::loadExperienceStages()
+{
+	pugi::xml_document doc;
+	pugi::xml_parse_result result = doc.load_file("data/XML/stages.xml");
+	if (!result) {
+		printXMLError("Error - Game::loadExperienceStages", "data/XML/stages.xml", result);
+		return false;
+	}
+
+	for (auto stageNode : doc.child("stages").children()) {
+		if (strcasecmp(stageNode.name(), "config") == 0) {
+			stagesEnabled = stageNode.attribute("enabled").as_bool();
+		} else {
+			uint32_t minLevel, maxLevel;
+			double multiplier;
+
+			pugi::xml_attribute minLevelAttribute = stageNode.attribute("minlevel");
+			if (minLevelAttribute) {
+				minLevel = pugi::cast<uint32_t>(minLevelAttribute.value());
+			} else {
+				minLevel = 1;
+			}
+
+			pugi::xml_attribute maxLevelAttribute = stageNode.attribute("maxlevel");
+			if (maxLevelAttribute) {
+				maxLevel = pugi::cast<uint32_t>(maxLevelAttribute.value());
+			} else {
+				maxLevel = 0;
+				lastStageLevel = minLevel;
+				useLastStageLevel = true;
+			}
+
+			pugi::xml_attribute multiplierAttribute = stageNode.attribute("multiplier");
+			if (multiplierAttribute) {
+				multiplier = pugi::cast<double>(multiplierAttribute.value());
+			} else {
+				multiplier = 1;
+			}
+
+			if (useLastStageLevel) {
+				stages[lastStageLevel] = multiplier;
+			} else {
+				for (uint32_t i = minLevel; i <= maxLevel; ++i) {
+					stages[i] = multiplier;
+				}
+			}
+		}
+	}
+	return true;
+}
+
+bool Game::loadSkillStages()
+{
+	pugi::xml_document doc;
+	pugi::xml_parse_result result = doc.load_file("data/XML/skillstages.xml");
+	if (!result) {
+		printXMLError("Error - Game::loadSkillStages", "data/XML/skillstages.xml", result);
+		return false;
+	}
+
+	for (auto stageNode : doc.child("skillstages").children()) {
+		if (strcasecmp(stageNode.name(), "skills") == 0) {
+			stagesSkillEnabled = stageNode.attribute("enabled").as_bool();
+			for (auto stage1 : stageNode.children()) {
+				uint32_t minLevel, maxLevel, multiplier;
+
+				pugi::xml_attribute minLevelAttribute = stage1.attribute("minskill");
+				if (minLevelAttribute) {
+					minLevel = pugi::cast<uint32_t>(minLevelAttribute.value());
+				}
+				else {
+					minLevel = 1;
+				}
+
+				pugi::xml_attribute maxLevelAttribute = stage1.attribute("maxskill");
+				if (maxLevelAttribute) {
+					maxLevel = pugi::cast<uint32_t>(maxLevelAttribute.value());
+				}
+				else {
+					maxLevel = 0;
+					lastStageSkill = minLevel;
+					useLastStageSkill = true;
+				}
+
+				pugi::xml_attribute multiplierAttribute = stage1.attribute("multiplier");
+				if (multiplierAttribute) {
+					multiplier = pugi::cast<uint32_t>(multiplierAttribute.value());
+				}
+				else {
+					multiplier = 1;
+				}
+
+				if (useLastStageSkill) {
+					stagesSkill[lastStageSkill] = multiplier;
+				}
+				else {
+					for (uint32_t i = minLevel; i <= maxLevel; ++i) {
+						stagesSkill[i] = multiplier;
+					}
+				}
+			}
+		}
+	}
+	return true;
+}
+
+uint64_t Game::getSkillStage(uint32_t level)
+{
+	if (!stagesSkillEnabled) {
+		return g_config.getNumber(ConfigManager::RATE_SKILL);
+	}
+
+	if (useLastStageSkill && level >= lastStageSkill) {
+		return stagesSkill[lastStageSkill];
+	}
+
+	return stagesSkill[level];
+}
+
+
+bool Game::loadMagicLevelStages()
+{
+	pugi::xml_document doc;
+	pugi::xml_parse_result result = doc.load_file("data/XML/skillstages.xml");
+	if (!result) {
+		printXMLError("Error - Game::loadMagicLevelStages", "data/XML/skillstages.xml", result);
+		return false;
+	}
+
+	for (auto stageNode : doc.child("skillstages").children()) {
+		if (strcasecmp(stageNode.name(), "magiclevel") == 0) {
+			stagesMlEnabled = stageNode.attribute("enabled").as_bool();
+			for (auto stage1 : stageNode.children()) {
+				uint32_t minLevel, maxLevel, multiplier;
+
+				pugi::xml_attribute minLevelAttribute = stage1.attribute("minmagic");
+				if (minLevelAttribute) {
+					minLevel = pugi::cast<uint32_t>(minLevelAttribute.value());
+				}
+				else {
+					minLevel = 1;
+				}
+
+				pugi::xml_attribute maxLevelAttribute = stage1.attribute("maxmagic");
+				if (maxLevelAttribute) {
+					maxLevel = pugi::cast<uint32_t>(maxLevelAttribute.value());
+				}
+				else {
+					maxLevel = 0;
+					lastStageMl = minLevel;
+					useLastStageMl = true;
+				}
+
+				pugi::xml_attribute multiplierAttribute = stage1.attribute("multiplier");
+				if (multiplierAttribute) {
+					multiplier = pugi::cast<uint32_t>(multiplierAttribute.value());
+				}
+				else {
+					multiplier = 1;
+				}
+
+				if (useLastStageMl) {
+					stagesMl[lastStageMl] = multiplier;
+				}
+				else {
+					for (uint32_t i = minLevel; i <= maxLevel; ++i) {
+						stagesMl[i] = multiplier;
+					}
+				}
+			}
+		}
+	}
+	return true;
+}
+
+uint64_t Game::getMagicLevelStage(uint32_t level)
+{
+	if (!stagesMlEnabled) {
+		return g_config.getNumber(ConfigManager::RATE_MAGIC);
+	}
+
+	if (useLastStageMl && level >= lastStageMl) {
+		return stagesMl[lastStageMl];
+	}
+
+	return stagesMl[level];
 }
 
 void Game::playerInviteToParty(uint32_t playerId, uint32_t invitedId)
@@ -5392,6 +5692,39 @@ void Game::kickPlayer(uint32_t playerId, bool displayEffect)
 	player->kickPlayer(displayEffect);
 }
 
+void Game::playerCyclopediaCharacterInfo(uint32_t playerId, CyclopediaCharacterInfoType_t characterInfoType)
+{
+	Player* player = getPlayerByID(playerId);
+	if (!player) {
+		return;
+	}
+
+	switch (characterInfoType) {
+	case CYCLOPEDIA_CHARACTERINFO_BASEINFORMATION: player->sendCyclopediaCharacterBaseInformation(); break;
+	case CYCLOPEDIA_CHARACTERINFO_GENERALSTATS: player->sendCyclopediaCharacterGeneralStats(); break;
+	case CYCLOPEDIA_CHARACTERINFO_COMBATSTATS: player->sendCyclopediaCharacterCombatStats(); break;
+	case CYCLOPEDIA_CHARACTERINFO_RECENTDEATHS: player->sendCyclopediaCharacterRecentDeaths(); break;
+	case CYCLOPEDIA_CHARACTERINFO_RECENTPVPKILLS: player->sendCyclopediaCharacterRecentPvPKills(); break;
+	case CYCLOPEDIA_CHARACTERINFO_ACHIEVEMENTS: player->sendCyclopediaCharacterAchievements(); break;
+	case CYCLOPEDIA_CHARACTERINFO_ITEMSUMMARY: player->sendCyclopediaCharacterItemSummary(); break;
+	case CYCLOPEDIA_CHARACTERINFO_OUTFITSMOUNTS: player->sendCyclopediaCharacterOutfitsMounts(); break;
+	case CYCLOPEDIA_CHARACTERINFO_STORESUMMARY: player->sendCyclopediaCharacterStoreSummary(); break;
+	case CYCLOPEDIA_CHARACTERINFO_INSPECTION: player->sendCyclopediaCharacterInspection(); break;
+	case CYCLOPEDIA_CHARACTERINFO_BADGES: player->sendCyclopediaCharacterBadges(); break;
+	case CYCLOPEDIA_CHARACTERINFO_TITLES: player->sendCyclopediaCharacterTitles(); break;
+	}
+}
+
+void Game::playerTournamentLeaderboard(uint32_t playerId, uint8_t leaderboardType)
+{
+	Player* player = getPlayerByID(playerId);
+	if (!player || leaderboardType > 1) {
+		return;
+	}
+
+	player->sendTournamentLeaderboard();
+}
+
 void Game::playerReportRuleViolationReport(uint32_t playerId, const std::string& targetName, uint8_t reportType, uint8_t reportReason, const std::string& comment, const std::string& translation)
 {
 	Player* player = getPlayerByID(playerId);
@@ -5542,12 +5875,13 @@ void Game::playerCreateMarketOffer(uint32_t playerId, uint8_t type, uint16_t spr
 		return;
 	}
 
-	if (!it.stackable && amount > 2000) {
+	if (!it.stackable && amount > 1000) {
 		return;
 	}
 
 	const uint32_t maxOfferCount = g_config.getNumber(ConfigManager::MAX_MARKET_OFFERS_AT_A_TIME_PER_PLAYER);
-	if (maxOfferCount != 0 && IOMarket::getPlayerOfferCount(player->getGUID()) >= maxOfferCount) {
+	if (maxOfferCount != 0 && 
+		IOMarket::getPlayerOfferCount(player->getGUID()) >= maxOfferCount) {
 		return;
 	}
 
@@ -5558,29 +5892,25 @@ void Game::playerCreateMarketOffer(uint32_t playerId, uint8_t type, uint16_t spr
 		fee = 1000;
 	}
 
-	if (type == MARKETACTION_SELL) {
+	if (type == MARKETACTION_SELL) {	
 
 		if (fee > (player->getBankBalance() + player->getMoney())) {
 			return;
-		}
-
+		}	
+		
 		DepotLocker* depotLocker = player->getDepotLocker(player->getLastDepotId());
 		if (!depotLocker) {
 			return;
 		}
 
 		if (it.id == ITEM_STORE_COIN) {
-      account::Account account(player->getAccount());
-      account.LoadAccountDB();
-      uint32_t coins;
-      account.GetCoins(&coins);
+			if (amount > IOAccount::getCoinBalance(player->getAccount())) {
+				return;
+			}
 
-      if (amount > coins) {
-        return;
-      }
-      account.RemoveCoins(static_cast<uint32_t>(amount));
-    } else {
-      std::forward_list<Item *> itemList = getMarketItemList(it.wareId, amount, depotLocker);
+			IOAccount::removeCoins(player->getAccount(), static_cast<int32_t>(amount));
+		} else {
+			std::forward_list<Item *> itemList = getMarketItemList(it.wareId, amount, depotLocker);
 
 			if (itemList.empty()) {
 				return;
@@ -5602,9 +5932,9 @@ void Game::playerCreateMarketOffer(uint32_t playerId, uint8_t type, uint16_t spr
 					internalRemoveItem(item);
 				}
 			}
-    }
+		}
 
-    g_game.removeMoney(player, fee, 0, true);
+		g_game.removeMoney(player, fee, 0, true);
 	} else {
 
 		uint64_t totalPrice = price * amount;
@@ -5631,7 +5961,7 @@ void Game::playerCreateMarketOffer(uint32_t playerId, uint8_t type, uint16_t spr
 	const MarketOfferList& sellOffers = IOMarket::getActiveOffers(MARKETACTION_SELL, it.id);
 	player->sendMarketBrowseItem(it.id, buyOffers, sellOffers);
 
-	//
+	// 
 	player->updateMarketExhausted(); // Exhausted for create offert in the market
 }
 
@@ -5668,10 +5998,8 @@ void Game::playerCancelMarketOffer(uint32_t playerId, uint32_t timestamp, uint16
 		}
 
 		if (it.id == ITEM_STORE_COIN) {
-      account::Account account;
-      account.LoadAccountDB(player->getAccount());
-      account.AddCoins(offer.amount);
-    }
+			IOAccount::addCoins(player->getAccount(), offer.amount);
+		}
 		else if (it.stackable) {
 			uint16_t tmpAmount = offer.amount;
 			while (tmpAmount > 0) {
@@ -5757,11 +6085,6 @@ void Game::playerAcceptMarketOffer(uint32_t playerId, uint32_t timestamp, uint16
 		}
 
 		Player* buyerPlayer = getPlayerByGUID(offer.playerId);
-		if (player == buyerPlayer) {
-			player->sendFYIBox("You cannot accept your own offer.");
-			return;
-		}
-
 		if (!buyerPlayer) {
 			buyerPlayer = new Player(nullptr);
 			if (!IOLoginData::loadPlayerById(buyerPlayer, offer.playerId)) {
@@ -5771,19 +6094,14 @@ void Game::playerAcceptMarketOffer(uint32_t playerId, uint32_t timestamp, uint16
 		}
 
 		if (it.id == ITEM_STORE_COIN) {
-      account::Account account;
-      account.LoadAccountDB(player->getAccount());
-      uint32_t coins;
-      account.GetCoins(&coins);
-      if (amount > coins)
-      {
-        return;
-      }
+			if (amount > IOAccount::getCoinBalance(player->getAccount())) {
+				return;
+			}
 
-      account.RemoveCoins(amount);
-      account.RegisterCoinsTransaction(account::COIN_REMOVE, amount,
-                                      "Sold on Market");
-    } else {
+			IOAccount::removeCoins(player->getAccount(), amount);
+			IOAccount::registerTransaction(player->getAccount(), -amount, "Sold on Market");
+
+		} else { 
 			std::forward_list<Item*> itemList = getMarketItemList(it.wareId, amount, depotLocker);
 			if (itemList.empty()) {
 				return;
@@ -5809,15 +6127,10 @@ void Game::playerAcceptMarketOffer(uint32_t playerId, uint32_t timestamp, uint16
 		player->setBankBalance(player->getBankBalance() + totalPrice);
 
 		if (it.id == ITEM_STORE_COIN) {
-      account::Account account;
-      account.LoadAccountDB(buyerPlayer->getAccount());
-      account.AddCoins(amount);
-      account.RegisterCoinsTransaction(account::COIN_ADD, amount,
-                                      "Purchased on Market");
-    }
-    else if (it.stackable)
-    {
-      uint16_t tmpAmount = amount;
+			IOAccount::addCoins(buyerPlayer->getAccount(), amount);
+			IOAccount::registerTransaction(buyerPlayer->getAccount(), amount, "Purchased on Market");
+		}else if (it.stackable) {
+			uint16_t tmpAmount = amount;
 			while (tmpAmount > 0) {
 				uint16_t stackCount = std::min<uint16_t>(100, tmpAmount);
 				Item* item = Item::CreateItem(it.id, stackCount);
@@ -5828,10 +6141,8 @@ void Game::playerAcceptMarketOffer(uint32_t playerId, uint32_t timestamp, uint16
 
 				tmpAmount -= stackCount;
 			}
-    }
-    else
-    {
-      int32_t subType;
+		} else {
+			int32_t subType;
 			if (it.charges != 0) {
 				subType = it.charges;
 			} else {
@@ -5845,23 +6156,18 @@ void Game::playerAcceptMarketOffer(uint32_t playerId, uint32_t timestamp, uint16
 					break;
 				}
 			}
-    }
+		}
 
-    if (buyerPlayer->isOffline()) {
+		if (buyerPlayer->isOffline()) {
 			IOLoginData::savePlayer(buyerPlayer);
 			delete buyerPlayer;
 		}
 	} else {//MARKETACTION_SELL
-		Player* sellerPlayer = getPlayerByGUID(offer.playerId);
-		if (player == sellerPlayer) {
-			player->sendFYIBox("You cannot accept your own offer.");
-			return;
-		}
-
+		
 		if (totalPrice > (player->getBankBalance() + player->getMoney())) {
 			return;
-		}
-
+		}	
+		
 		// Have enough money on the bank
 		if(totalPrice <= player->getBankBalance())
 		{
@@ -5876,11 +6182,8 @@ void Game::playerAcceptMarketOffer(uint32_t playerId, uint32_t timestamp, uint16
 		}
 
 		if (it.id == ITEM_STORE_COIN) {
-      account::Account account;
-      account.LoadAccountDB(player->getAccount());
-      account.AddCoins(amount);
-      account.RegisterCoinsTransaction(account::COIN_ADD, amount,
-                                      "Purchased on Market");
+			IOAccount::addCoins(player->getAccount(), amount);
+			IOAccount::registerTransaction(player->getAccount(), amount, "Purchased on Market");
 		} else if (it.stackable) {
 			uint16_t tmpAmount = amount;
 			while (tmpAmount > 0) {
@@ -5910,24 +6213,19 @@ void Game::playerAcceptMarketOffer(uint32_t playerId, uint32_t timestamp, uint16
 			}
 		}
 
+		Player* sellerPlayer = getPlayerByGUID(offer.playerId);
 		if (sellerPlayer) {
 			sellerPlayer->setBankBalance(sellerPlayer->getBankBalance() + totalPrice);
 			if (it.id == ITEM_STORE_COIN) {
-        account::Account account;
-        account.LoadAccountDB(sellerPlayer->getAccount());
-        account.RegisterCoinsTransaction(account::COIN_REMOVE, amount,
-                                        "Sold on Market");
-      }
+				IOAccount::registerTransaction(sellerPlayer->getAccount(), -amount, "Sold on Market");
+			}
 		} else {
 			IOLoginData::increaseBankBalance(offer.playerId, totalPrice);
 			if (it.id == ITEM_STORE_COIN) {
 				sellerPlayer = new Player(nullptr);
 
 				if (IOLoginData::loadPlayerById(sellerPlayer, offer.playerId)) {
-          account::Account account;
-          account.LoadAccountDB(sellerPlayer->getAccount());
-          account.RegisterCoinsTransaction(account::COIN_REMOVE, amount,
-                                          "Sold on Market");
+					IOAccount::registerTransaction(sellerPlayer->getAccount(), -amount, "Sold on Market");
 		}
 
 				delete sellerPlayer;
@@ -5986,11 +6284,13 @@ void Game::playerBuyStoreOffer(uint32_t playerId, uint32_t offerId, uint8_t prod
 			return;
 		}
 
-    account::Account account;
-    account.LoadAccountDB(player->getAccount());
-    uint32_t coins;
-    account.GetCoins(&coins);
-    if (coins < offer->price) //player doesnt have enough coins
+/*
+		if ((offer->type == ITEM || offer->type == STACKABLE_ITEM && !((ItemOffer*)offer)->productId) //item offer without product id
+				|| (offer->type == MOUNT && !((MountOffer*)offer)->mountId) //mount offer without mountId
+				|| (offer->type == PREMIUM_TIME && !((PremiumTimeOffer*)offer)->days)) { }
+*/
+
+		if (IOAccount::getCoinBalance(player->getAccount()) < offer->price) //player doesnt have enough coins
 		{
 			player->sendStoreError(STORE_ERROR_PURCHASE, "You don't have enough coins");
 			return;
@@ -6026,10 +6326,9 @@ void Game::playerBuyStoreOffer(uint32_t playerId, uint32_t offerId, uint8_t prod
 			} else {
 				uint16_t pendingCount = tmp->count;
 				uint8_t packSize = (offer->type == STACKABLE_ITEM) ? 100 : 1;
-        account.LoadAccountDB(player->getAccount());
-        account.RemoveCoins(offer->price);
-        account.RegisterCoinsTransaction(account::COIN_REMOVE, offer->price,
-                                        offer->name);
+				IOAccount::removeCoins(player->getAccount(), offer->price);
+				IOAccount::registerTransaction(player->getAccount(), -1*offer->price, offer->name);
+
 				while(pendingCount>0)
 				{
 					Item* item;
@@ -6044,19 +6343,16 @@ void Game::playerBuyStoreOffer(uint32_t playerId, uint32_t offerId, uint8_t prod
 
 					if (internalAddItem(inbox, item, INDEX_WHEREEVER, FLAG_NOLIMIT) != RETURNVALUE_NOERROR) {
 						delete item;
+						IOAccount::addCoins(player->getAccount(),(offer->price * (tmp->count - pendingCount))/tmp->count); //charging partially
 						player->sendStoreError(STORE_ERROR_PURCHASE, "We couldn't deliver all the items.\nOnly the delivered ones were charged from you account");
-            account.AddCoins((offer->price * (tmp->count - pendingCount)/tmp->count));
-            account.RegisterCoinsTransaction(account::COIN_REMOVE,
-                  offer->price + (offer->price * (tmp->count - pendingCount))/tmp->count,
-                  offer->name);
+						IOAccount::registerTransaction(player->getAccount(), -1*offer->price + (offer->price * (tmp->count - pendingCount))/tmp->count, offer->name);
 						return;
 					}
 					pendingCount-= std::min<uint16_t>(pendingCount,packSize);
 				}
 
-        account.GetCoins(&coins);
-        player->sendStorePurchaseSuccessful(message.str(), coins);
-        return;
+				player->sendStorePurchaseSuccessful(message.str(), IOAccount::getCoinBalance(player->getAccount()));
+				return;
 			}
 		} else if (offer->type == OUTFIT || offer->type == OUTFIT_ADDON) {
 			const OutfitOffer* outfitOffer = (OutfitOffer*) offer;
@@ -6065,15 +6361,12 @@ void Game::playerBuyStoreOffer(uint32_t playerId, uint32_t offerId, uint8_t prod
 			uint8_t addons = outfitOffer->addonNumber;
 
 			if (!player->canWear(looktype, addons)) {
+				IOAccount::removeCoins(player->getAccount(), offer->price);
 				player->addOutfit(looktype, addons);
-        account.LoadAccountDB(player->getAccount());
-        account.RemoveCoins(offer->price);
-        account.RegisterCoinsTransaction(account::COIN_REMOVE, offer->price,
-                                        offer->name);
+				IOAccount::registerTransaction(player->getAccount(), -1*offer->price, offer->name);
 				message<< "You've successfully bought the "<< outfitOffer->name << ".";
-        account.GetCoins(&coins);
-        player->sendStorePurchaseSuccessful(message.str(), coins);
-        return;
+				player->sendStorePurchaseSuccessful(message.str(), IOAccount::getCoinBalance(player->getAccount()));
+				return;
 			} else {
 				player->sendStoreError(STORE_ERROR_NETWORK, "This outfit seems not to suit you well, we are sorry for that!");
 				return;
@@ -6085,19 +6378,16 @@ void Game::playerBuyStoreOffer(uint32_t playerId, uint32_t offerId, uint8_t prod
 				player->sendStoreError(STORE_ERROR_PURCHASE, "You arealdy own this mount.");
 				return;
 			} else {
-        account.LoadAccountDB(player->getAccount());
-        account.RemoveCoins(mntOffer->price);
-        if (!player->tameMount(mount->id)) {
-          account.AddCoins(mntOffer->price);
-          player->sendStoreError(STORE_ERROR_PURCHASE, "An error ocurred processing your purchase. Try again later.");
+				IOAccount::removeCoins(player->getAccount(), mntOffer->price);
+				if (!player->tameMount(mount->id)) {
+					IOAccount::addCoins(player->getAccount(), mntOffer->price);
+					player->sendStoreError(STORE_ERROR_PURCHASE, "An error ocurred processing your purchase. Try again later.");
 					return;
 				} else {
-          account.RegisterCoinsTransaction(account::COIN_REMOVE, offer->price,
-                                          offer->name);
+					IOAccount::registerTransaction(player->getAccount(), -1*offer->price, offer->name);
 					message << "You've successfully bought the " << mount->name <<" Mount.";
-          account.GetCoins(&coins);
-          player->sendStorePurchaseSuccessful(message.str(), coins);
-          return;
+					player->sendStorePurchaseSuccessful(message.str(), IOAccount::getCoinBalance(player->getAccount()));
+					return;
 				}
 			}
 		} else if (offer->type == NAMECHANGE) {
@@ -6164,13 +6454,12 @@ void Game::playerBuyStoreOffer(uint32_t playerId, uint32_t offerId, uint8_t prod
 							query << "UPDATE `players` SET `name` = " << db.escapeString(newName) << " WHERE `id` = "
 								  << player->getGUID();
 							if (db.executeQuery(query.str())) {
-                account.LoadAccountDB(player->getAccount());
-                account.RemoveCoins(offer->price);
-                account.RegisterCoinsTransaction(account::COIN_REMOVE,
-                                                offer->price, offer->name);
-                account.GetCoins(&coins);
-                message << "You have successfully changed you name, you must relog to see the changes.";
-                player->sendStorePurchaseSuccessful(message.str(), coins);
+								IOAccount::removeCoins(player->getAccount(), offer->price);
+								IOAccount::registerTransaction(player->getAccount(), -1*offer->price, offer->name);
+
+								message << "You have successfully changed you name, you must relog to see the changes.";
+								player->sendStorePurchaseSuccessful(message.str(),
+																	IOAccount::getCoinBalance(player->getAccount()));
 								return;
 							} else {
 								message << "An error ocurred processing your request, no changes were made.";
@@ -6209,12 +6498,9 @@ void Game::playerBuyStoreOffer(uint32_t playerId, uint32_t offerId, uint8_t prod
 			}
 			playerChangeOutfit(player->getID(),playerOutfit);
 			//TODO: add the other sex equivalent outfits player already have in the current sex.
-      account.LoadAccountDB(player->getAccount());
-      account.RemoveCoins(offer->price);
-      account.RegisterCoinsTransaction(account::COIN_REMOVE, offer->price,
-                                      offer->name);
-      account.GetCoins(&coins);
-			player->sendStorePurchaseSuccessful(message.str(), coins);
+			IOAccount::removeCoins(player->getAccount(),offer->price);
+			IOAccount::registerTransaction(player->getAccount(),-1*offer->price,offer->name);
+			player->sendStorePurchaseSuccessful(message.str(), IOAccount::getCoinBalance(player->getAccount()));
 			return;
 		} else if (offer->type == PROMOTION) {
 			if (player->isPremium() && !player->isPromoted()) {
@@ -6224,15 +6510,12 @@ void Game::playerBuyStoreOffer(uint32_t playerId, uint32_t offerId, uint8_t prod
 					player->sendStoreError(STORE_ERROR_PURCHASE, "Your character cannot be promoted.");
 					return;
 				} else {
-          account.LoadAccountDB(player->getAccount());
-          account.RemoveCoins(offer->price);
-          account.RegisterCoinsTransaction(account::COIN_REMOVE,
-                                          offer->price, offer->name);
-          account.GetCoins(&coins);
+					IOAccount::removeCoins(player->getAccount(), offer->price);
+					IOAccount::registerTransaction(player->getAccount(), -1*offer->price, offer->name);
 					player->setVocation(promotedId);
 					player->addStorageValue(STORAGEVALUE_PROMOTION,1);
 					message << "You've been promoted! Relog to see the changes.";
-					player->sendStorePurchaseSuccessful(message.str(), coins);
+					player->sendStorePurchaseSuccessful(message.str(), IOAccount::getCoinBalance(player->getAccount()));
 					return;
 				}
 			} else {
@@ -6241,15 +6524,12 @@ void Game::playerBuyStoreOffer(uint32_t playerId, uint32_t offerId, uint8_t prod
 			}
 		} else if (offer->type == PREMIUM_TIME) {
 			PremiumTimeOffer* premiumTimeOffer = (PremiumTimeOffer*) offer;
-      account.LoadAccountDB(player->getAccount());
-      account.RemoveCoins(offer->price);
-      account.RegisterCoinsTransaction(account::COIN_REMOVE, offer->price,
-                                      offer->name);
-      account.GetCoins(&coins);
+			IOAccount::removeCoins(player->getAccount(),offer->price);
+			IOAccount::registerTransaction(player->getAccount(), -1*offer->price, offer->name);
 			player->setPremiumDays(player->premiumDays+premiumTimeOffer->days);
 			IOLoginData::addPremiumDays(player->getAccount(),premiumTimeOffer->days);
 			message<< "You've successfully bought "<< premiumTimeOffer->days << " days of premium time.";
-			player->sendStorePurchaseSuccessful(message.str(),coins);
+			player->sendStorePurchaseSuccessful(message.str(),IOAccount::getCoinBalance(player->getAccount()));
 			return;
 		} else if (offer->type == TELEPORT) {
 			TeleportOffer* tpOffer = (TeleportOffer*) offer;
@@ -6267,14 +6547,11 @@ void Game::playerBuyStoreOffer(uint32_t playerId, uint32_t offerId, uint8_t prod
 					player->sendStoreError(STORE_ERROR_PURCHASE, "Your character cannot be teleported there at the moment.");
 					return;
 				} else {
-          account.LoadAccountDB(player->getAccount());
-          account.RemoveCoins(offer->price);
-          account.RegisterCoinsTransaction(account::COIN_REMOVE, offer->price,
-                                          offer->name);
-          account.GetCoins(&coins);
+					IOAccount::removeCoins(player->getAccount(), offer->price);
+					IOAccount::registerTransaction(player->getAccount(), -1*offer->price, offer->name);
 					addMagicEffect(fromPosition, CONST_ME_POFF);
 					addMagicEffect(toPosition,CONST_ME_TELEPORT);
-					player->sendStorePurchaseSuccessful("You've successfully been teleported.", coins);
+					player->sendStorePurchaseSuccessful("You've successfully been teleported.", IOAccount::getCoinBalance(player->getAccount()));
 					return;
 				}
 			} else {
@@ -6295,14 +6572,12 @@ void Game::playerBuyStoreOffer(uint32_t playerId, uint32_t offerId, uint8_t prod
 				}
 				blessingsToAdd = bless;
 			}
-      account.LoadAccountDB(player->getAccount());
-      account.RemoveCoins(offer->price);
-      account.RegisterCoinsTransaction(account::COIN_REMOVE, offer->price,
-                                      offer->name);
-      account.GetCoins(&coins);
+
+			IOAccount::removeCoins(player->getAccount(), offer->price);
 			player->addBlessing(blessingsToAdd, 1);
+			IOAccount::registerTransaction(player->getAccount(), -1*offer->price, offer->name);
 			message<< "You've successfully bought the "<< offer->name << ".";
-			player->sendStorePurchaseSuccessful(message.str(), coins);
+			player->sendStorePurchaseSuccessful(message.str(), IOAccount::getCoinBalance(player->getAccount()));
 			return;
 		} else {
 			//TODO: BOOST_XP and BOOST_STAMINA (the support systems are not yet implemented)
@@ -6316,52 +6591,69 @@ void Game::playerCoinTransfer(uint32_t playerId, const std::string &receiverName
 {
 	Player* sender = getPlayerByID(playerId);
 	Player* receiver = getPlayerByName(receiverName);
-  std::stringstream message;
 	if (!sender) {
 		return;
-	} else if (!receiver) {
-      message << "Player \"" << receiverName << "\" doesn't exist.";
+	} else {
+		std::ostringstream query;
+		Database &db = Database::getInstance();
+
+		query << "SELECT `name`,`account_id` from `players` WHERE `name`=" << db.escapeString(receiverName);
+
+		std::stringstream message;
+		DBResult_ptr result = db.storeQuery(query.str());
+		if (!result) {
+			message << "Player \"" << receiverName << "\" doesn't exist.";
 			sender->sendStoreError(STORE_ERROR_TRANSFER, message.str());
 			return;
-	} else {
+		} else {
+			uint32_t receiverAccountId = result->getNumber<uint32_t>("account_id");
+			std::string capitalizedReceiverName = result->getString("name");
+			if (receiverAccountId == 0) {
+				message << "Player \"" << receiverName << "\" doesn't exist.";
+				sender->sendStoreError(STORE_ERROR_TRANSFER, message.str());
+				return;
+			} else if (sender->getAccount() == receiverAccountId) { //sender and receiver are the same
+				message << "You cannot send coins to your own account.";
+				sender->sendStoreError(STORE_ERROR_TRANSFER, message.str());
+				return;
+			} else if (IOAccount::getCoinBalance(sender->getAccount()) < amount) {
+				message << "You don't have enough funds to transfer these coins.";
+				sender->sendStoreError(STORE_ERROR_TRANSFER, message.str());
+				return;
+			} else {
+				DBTransaction transaction;
+				std::ostringstream querySender, queryReceiver;
 
-    account::Account sender_account;
-    sender_account.LoadAccountDB(sender->getAccount());
-    account::Account receiver_account;
-    receiver_account.LoadAccountDB(receiver->getAccount());
-    uint32_t sender_coins;
-    sender_account.GetCoins(&sender_coins);
+				querySender << "UPDATE `accounts` SET `coins` = `coins` - " << amount << " WHERE `id` = "
+							<< sender->getAccount();
+				queryReceiver << "UPDATE `accounts` SET `coins` = `coins` + " << amount << " WHERE `id` = "
+							  << receiverAccountId;
+				if (!transaction.begin()) {
+					sender->sendStoreError(STORE_ERROR_TRANSFER, "Internal error, try again later.");
+					return;
+				}
 
-    if (sender->getAccount() == receiver->getAccount()) {  //sender and receiver are the same
-      message << "You cannot send coins to your own account.";
-      sender->sendStoreError(STORE_ERROR_TRANSFER, message.str());
-      return;
-    } else if (sender_coins < amount) {
-      message << "You don't have enough funds to transfer these coins.";
-      sender->sendStoreError(STORE_ERROR_TRANSFER, message.str());
-      return;
-    } else {
+				db.executeQuery(querySender.str());
+				db.executeQuery(queryReceiver.str());
 
-      sender_account.RemoveCoins(amount);
-      receiver_account.AddCoins(amount);
-      message << "Transfered to " << receiverName;
-      sender_account.RegisterCoinsTransaction(account::COIN_REMOVE, amount,
-                                              message.str());
+				transaction.commit();
 
-      message.str("");
-      message << "Received from" << sender->name;
-      receiver_account.RegisterCoinsTransaction(account::COIN_REMOVE,
-                                                amount, message.str());
+				message << "Transfered to " << capitalizedReceiverName;
+				IOAccount::registerTransaction(sender->getAccount(), -1 * amount, message.str());
 
-      sender_account.GetCoins(&sender_coins);
-      message.str("");
-      message << "You have successfully transfered " << amount << " coins to " << receiverName << ".";
-      sender->sendStorePurchaseSuccessful(message.str(), sender_coins);
-      if (receiver && !receiver->isOffline()) {
-        receiver->sendCoinBalance();
-      }
-    }
-  }
+				message.str("");
+				message << "Received from" << sender->name;
+				IOAccount::registerTransaction(receiverAccountId, amount, message.str());
+
+				message.str("");
+				message << "You have successfully transfered " << amount << " coins to " << capitalizedReceiverName << ".";
+				sender->sendStorePurchaseSuccessful(message.str(), IOAccount::getCoinBalance(sender->getAccount()));
+				if (receiver && !receiver->isOffline()) {
+					receiver->sendCoinBalance();
+				}
+			}
+		}
+	}
 }
 
 void Game::playerStoreTransactionHistory(uint32_t playerId, uint32_t page)
@@ -6386,6 +6678,56 @@ void Game::parsePlayerExtendedOpcode(uint32_t playerId, uint8_t opcode, const st
 
 	for (CreatureEvent* creatureEvent : player->getCreatureEvents(CREATURE_EVENT_EXTENDED_OPCODE)) {
 		creatureEvent->executeExtendedOpcode(player, opcode, buffer);
+	}
+}
+
+void Game::playerRequestResourceData(uint32_t playerId, ResourceType_t resourceType) {
+	Player* player = getPlayerByID(playerId);
+	if (!player) {
+		return;
+	}
+
+	for (uint8_t preySlotId = 0; preySlotId < PREY_SLOTCOUNT; preySlotId++) {
+		player->sendFreeListRerollAvailability(preySlotId);
+	}
+
+	switch (resourceType) {
+	case RESOURCETYPE_BANK_GOLD: player->sendResourceData(RESOURCETYPE_BANK_GOLD, player->getBankBalance()); break;
+	case RESOURCETYPE_INVENTORY_GOLD: player->sendResourceData(RESOURCETYPE_INVENTORY_GOLD, player->getMoney()); break;
+	case RESOURCETYPE_PREY_BONUS_REROLLS: player->sendResourceData(RESOURCETYPE_PREY_BONUS_REROLLS, 0); break;
+	default: {
+		player->sendResourceData(RESOURCETYPE_BANK_GOLD, player->getBankBalance());
+		player->sendResourceData(RESOURCETYPE_INVENTORY_GOLD, player->getMoney());
+		player->sendResourceData(RESOURCETYPE_PREY_BONUS_REROLLS, player->getBonusRerollCount());
+		break;
+	}
+	}
+}
+
+void Game::playerPreyAction(uint32_t playerId, uint8_t preySlotId, PreyAction_t preyAction, uint8_t monsterIndex)
+{
+	Player* player = getPlayerByID(playerId);
+	if (!player) {
+		return;
+	}
+
+	ReturnValue returnValue = RETURNVALUE_NOERROR;
+	switch (preyAction) {
+	case PREY_ACTION_LISTREROLL:
+		returnValue = player->rerollPreyData(preySlotId);
+		break;
+	case PREY_ACTION_BONUSREROLL:
+		returnValue = player->rerollPreyBonus(preySlotId);
+		break;
+	case PREY_ACTION_MONSTERSELECTION:
+		returnValue = player->changePreyDataState(preySlotId, STATE_ACTIVE, monsterIndex);
+		break;
+	default:
+		break;
+	}
+
+	if (returnValue != RETURNVALUE_NOERROR) {
+		player->sendMessageDialog(MESSAGEDIALOG_PREY_ERROR, getReturnMessage(returnValue));
 	}
 }
 
@@ -6544,9 +6886,6 @@ Guild* Game::getGuild(uint32_t id) const
 
 void Game::addGuild(Guild* guild)
 {
-  if (!guild) {
-    return;
-  }
 	guilds[guild->getId()] = guild;
 }
 
@@ -6641,11 +6980,7 @@ bool Game::reload(ReloadTypes_t reloadType)
 		case RELOAD_TYPE_ACTIONS: return g_actions->reload();
 		case RELOAD_TYPE_CHAT: return g_chat->load();
 		case RELOAD_TYPE_CONFIG: return g_config.reload();
-		case RELOAD_TYPE_CREATURESCRIPTS: {
-			g_creatureEvents->reload();
-			g_creatureEvents->removeInvalidEvents();
-			return true;
-		}
+		case RELOAD_TYPE_CREATURESCRIPTS: return g_creatureEvents->reload();
 		case RELOAD_TYPE_EVENTS: return g_events->load();
 		case RELOAD_TYPE_GLOBALEVENTS: return g_globalEvents->reload();
 		case RELOAD_TYPE_ITEMS: return Item::items.reload();
@@ -6691,18 +7026,10 @@ bool Game::reload(ReloadTypes_t reloadType)
 			g_weapons->loadDefaults();
 			g_spells->clear(true);
 			g_scripts->loadScripts("scripts", false, true);
-			g_creatureEvents->removeInvalidEvents();
 			return true;
 		}
 
 		default: {
-			if (!g_spells->reload()) {
-				std::cout << "[Error - Game::reload] Failed to reload spells." << std::endl;
-				std::terminate();
-			} else if (!g_monsters.reload()) {
-				std::cout << "[Error - Game::reload] Failed to reload monsters." << std::endl;
-				std::terminate();
-			}
 
 			g_actions->reload();
 			g_config.reload();
@@ -6727,11 +7054,9 @@ bool Game::reload(ReloadTypes_t reloadType)
 			g_globalEvents->clear(true);
 			g_spells->clear(true);
 			g_scripts->loadScripts("scripts", false, true);
-			g_creatureEvents->removeInvalidEvents();
 			return true;
 		}
 	}
-	return true;
 }
 
 bool Game::itemidHasMoveevent(uint32_t itemid)

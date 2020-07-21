@@ -1,6 +1,8 @@
 /**
+ * @file map.h
+ * 
  * The Forgotten Server - a free and open-source MMORPG server emulator
- * Copyright (C) 2019  Mark Samman <mark.samman@gmail.com>
+ * Copyright (C) 2020 Mark Samman <mark.samman@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,8 +19,8 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef FS_MAP_H_E3953D57C058461F856F5221D359DAFA
-#define FS_MAP_H_E3953D57C058461F856F5221D359DAFA
+#ifndef OT_SRC_MAP_H_
+#define OT_SRC_MAP_H_
 
 #include "position.h"
 #include "item.h"
@@ -152,7 +154,7 @@ class QTreeLeafNode final : public QTreeNode
 		void addCreature(Creature* c);
 		void removeCreature(Creature* c);
 
-	private:
+	protected:
 		static bool newLeaf;
 		QTreeLeafNode* leafS = nullptr;
 		QTreeLeafNode* leafE = nullptr;
@@ -183,7 +185,7 @@ class Map
 		  * Load a map.
 		  * \returns true if the map was loaded successfully
 		  */
-		bool loadMap(const std::string& identifier, bool loadHouses, bool loadSpawns);
+		bool loadMap(const std::string& identifier, bool loadHouses);
 
 		/**
 		  * Save a map.
@@ -262,7 +264,7 @@ class Map
 		Spawns spawns;
 		Towns towns;
 		Houses houses;
-	private:
+	protected:
 		SpectatorCache spectatorCache;
 		SpectatorCache playersSpectatorCache;
 

@@ -49,7 +49,7 @@ local yasirEnabled = true
 local yasirChance = 33
 
 local function spawnYasir(position)
-	local npc = Game.createNpc('yasir', position)
+	local npc = Game.createNpc('Yasir', position)
 	if npc then
 		npc:setMasterPos(position)
 	end
@@ -61,24 +61,24 @@ function onStartup()
 			local randTown = config[math.random(#config)]
 			print('>> Yasir: '.. randTown.mapName ..'. ')
 			iterateArea(
-			function(position)
-				local tile = Tile(position)
-				if tile then
-					local items = tile:getItems()
-					if items then
-						for i = 1, #items do
-							items[i]:remove()
+				function(position)
+					local tile = Tile(position)
+					if tile then
+						local items = tile:getItems()
+						if items then
+							for i = 1, #items do
+								items[i]:remove()
+							end
+						end
+
+						local ground = tile:getGround()
+						if ground then
+							ground:remove()
 						end
 					end
-
-					local ground = tile:getGround()
-					if ground then
-						ground:remove()
-					end
-				end
-			end,
-			randTown.fromPosition,
-			randTown.toPosition
+				end,
+				randTown.fromPosition,
+				randTown.toPosition
 			)
 
 			if randTown.removeItems then
@@ -91,10 +91,10 @@ function onStartup()
 				end
 			end
 
-			Game.loadMap('data/world/yasir/' .. randTown.mapName .. '.otbm')
+			Game.loadMap('data/world/worldchanges/yasir/' .. randTown.mapName .. '.otbm')
 			addEvent(spawnYasir, 5000, randTown.yasirPosition)
 		else
-			print('>> Yasir: not this time')
+			print('>> Yasir: not this time.')
 		end
 	end
 end

@@ -1,6 +1,6 @@
-local storageGet = TalkAction("/get")
+local talk = TalkAction("/get")
 
-function storageGet.onSay(cid, words, param)
+function talk.onSay(cid, words, param)
 	local player = Player(cid)
 	if not player:getGroup():getAccess() then
 		return true
@@ -31,5 +31,5 @@ function storageGet.onSay(cid, words, param)
 	return false
 end
 
-storageGet:separator(" ")
-storageGet:register()
+talk:separator(" ")
+talk:register()

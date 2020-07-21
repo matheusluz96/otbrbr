@@ -1,6 +1,8 @@
-/**
+﻿/**
+ * @file iomapserialize.cpp
+ * 
  * The Forgotten Server - a free and open-source MMORPG server emulator
- * Copyright (C) 2019  Mark Samman <mark.samman@gmail.com>
+ * Copyright (C) 2020 Mark Samman <mark.samman@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -61,7 +63,7 @@ void IOMapSerialize::loadHouseItems(Map* map)
 			loadItem(propStream, tile);
 		}
 	} while (result->next());
-	std::cout << "> Loaded house items in: " << (OTSYS_TIME() - start) / (1000.) << " seconds" << std::endl;
+	std::cout << "> Loaded house items in: " << (OTSYS_TIME() - start) / (1000.) << " s" << std::endl;
 }
 
 bool IOMapSerialize::saveHouseItems()
@@ -109,7 +111,7 @@ bool IOMapSerialize::saveHouseItems()
 	//End the transaction
 	bool success = transaction.commit();
 	std::cout << "> Saved house items in: " <<
-			  (OTSYS_TIME() - start) / (1000.) << " seconds" << std::endl;
+			  (OTSYS_TIME() - start) / (1000.) << " s" << std::endl;
 	return success;
 }
 
@@ -144,7 +146,7 @@ bool IOMapSerialize::loadItem(PropStream& propStream, Cylinder* parent)
 	}
 
 	const ItemType& iType = Item::items[id];
-	if (iType.moveable || !tile || iType.isCarpet()) {
+	if (iType.moveable || iType.unmoveabledItem || !tile) {
 		//create a new item
 		Item* item = Item::CreateItem(id);
 		if (item) {
@@ -247,7 +249,7 @@ void IOMapSerialize::saveTile(PropWriteStream& stream, const Tile* tile)
 		const ItemType& it = Item::items[item->getID()];
 
 		// Note that these are NEGATED, ie. these are the items that will be saved.
-		if (!(it.moveable || it.isCarpet() || item->getDoor() || (item->getContainer() && !item->getContainer()->empty()) || it.canWriteText || item->getBed())) {
+		if (!(it.unmoveabledItem || it.moveable || item->getDoor() || (item->getContainer() && !item->getContainer()->empty()) || it.canWriteText || item->getBed())) {
 			continue;
 		}
 

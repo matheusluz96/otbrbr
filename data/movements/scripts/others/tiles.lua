@@ -29,12 +29,14 @@ function onStepIn(creature, item, position, fromPosition)
 		local depotItem = lookPosition:getTile():getItemByType(ITEM_TYPE_DEPOT)
 
 		if depotItem ~= nil then
+			--local depotItems = player:getDepotChest(getDepotId(depotItem.uid), true):getItemHoldingCount()
 			local depotItems = 0
 			for id = 1, configManager.getNumber("depotBoxes") do
 				depotItems = depotItems + player:getDepotChest(id, true):getItemHoldingCount()
 			end
 
 			player:sendTextMessage(MESSAGE_STATUS_DEFAULT, "Your depot contains " .. depotItems .. " item" .. (depotItems > 1 and "s." or "."))
+			player:setDepotStash(true)
 			return true
 		end
 	end
@@ -45,6 +47,7 @@ function onStepIn(creature, item, position, fromPosition)
 		player:sendTextMessage(MESSAGE_EVENT_ADVANCE, "The tile seems to be protected against unwanted intruders.")
 		return true
 	end
+
 	return true
 end
 
@@ -57,6 +60,7 @@ function onStepOut(creature, item, position, fromPosition)
 		return true
 	end
 
+	creature:setDepotStash(false)
 	item:transform(decreasing[item.itemid])
 	return true
 end

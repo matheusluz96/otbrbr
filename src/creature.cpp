@@ -1,6 +1,8 @@
 /**
+ * @file creature.cpp
+ * 
  * The Forgotten Server - a free and open-source MMORPG server emulator
- * Copyright (C) 2019  Mark Samman <mark.samman@gmail.com>
+ * Copyright (C) 2020 Mark Samman <mark.samman@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -363,7 +365,7 @@ void Creature::onAddTileItem(const Tile* tileItem, const Position& pos)
 }
 
 void Creature::onUpdateTileItem(const Tile* updateTile, const Position& pos, const Item*,
-                                const ItemType& oldType, const Item*, const ItemType& newType)
+								const ItemType& oldType, const Item*, const ItemType& newType)
 {
 	if (!isMapLoaded) {
 		return;
@@ -472,10 +474,12 @@ void Creature::onCreatureMove(Creature* creature, const Tile* newTile, const Pos
 			std::forward_list<Creature*> despawnList;
 			for (Creature* summon : summons) {
 				const Position& pos = summon->getPosition();
-				if (summon->getMonster()->isPet() && (Position::getDistanceZ(newPos, pos) >= 1 || (std::max<int32_t>(Position::getDistanceX(newPos, pos), Position::getDistanceY(newPos, pos)) >= 15))) {
-					g_game.internalTeleport(summon, summon->getMaster()->getPosition(), true);
-				} else if (!summon->getMonster()->isPet() && (Position::getDistanceZ(newPos, pos) >= 2 || (std::max<int32_t>(Position::getDistanceX(newPos, pos), Position::getDistanceY(newPos, pos)) >= 30))) {
-					despawnList.push_front(summon);
+				if (Position::getDistanceZ(newPos, pos) > 2 || (std::max<int32_t>(Position::getDistanceX(newPos, pos), Position::getDistanceY(newPos, pos)) > 30)) {
+					if (!summon->getMonster()->isPet()) {
+						despawnList.push_front(summon);
+					} else {
+						g_game.internalTeleport(summon, summon->getMaster()->getPosition(), true);
+					}
 				}
 			}
 
@@ -586,7 +590,9 @@ void Creature::onCreatureMove(Creature* creature, const Tile* newTile, const Pos
 
 	if (creature == followCreature || (creature == this && followCreature)) {
 		if (hasFollowPath) {
-			isUpdatingPath = true;
+			// workaround for freezing monsters
+			// this is going to need a review later
+			isUpdatingPath = false;
 			g_dispatcher.addTask(createTask(std::bind(&Game::updateCreatureWalk, &g_game, getID())));
 		}
 
@@ -618,7 +624,7 @@ void Creature::onDeath()
 	Creature* lastHitCreature = g_game.getCreatureByID(lastHitCreatureId);
 	Creature* lastHitCreatureMaster;
 	if (lastHitCreature) {
-		lastHitUnjustified = lastHitCreature->onKilledCreature(this, true);
+		lastHitUnjustified = lastHitCreature->onKilledCreature(this);
 		lastHitCreatureMaster = lastHitCreature->getMaster();
 	} else {
 		lastHitCreatureMaster = nullptr;
@@ -765,9 +771,6 @@ void Creature::changeHealth(int32_t healthChange, bool sendHealthChange/* = true
 	if (sendHealthChange && oldHealth != health) {
 		g_game.addCreatureHealth(this);
 	}
-	if (health <= 0) {
-		g_dispatcher.addTask(createTask(std::bind(&Game::executeDeath, &g_game, getID())));
-	}
 }
 
 void Creature::changeMana(int32_t manaChange)
@@ -807,7 +810,7 @@ void Creature::drainMana(Creature* attacker, int32_t manaLoss)
 }
 
 BlockType_t Creature::blockHit(Creature* attacker, CombatType_t combatType, int32_t& damage,
-                               bool checkDefense /* = false */, bool checkArmor /* = false */, bool /* field  = false */)
+							   bool checkDefense /* = false */, bool checkArmor /* = false */, bool /* field  = false */)
 {
 	BlockType_t blockType = BLOCK_NONE;
 
@@ -1099,16 +1102,16 @@ void Creature::onAttackedCreatureKilled(Creature* target)
 	}
 }
 
-bool Creature::onKilledCreature(Creature* target, bool lastHit)
+bool Creature::onKilledCreature(Creature* target, bool)
 {
 	if (master) {
-		master->onKilledCreature(target, lastHit);
+		master->onKilledCreature(target);
 	}
 
 	//scripting event - onKill
 	const CreatureEventList& killEvents = getCreatureEvents(CREATURE_EVENT_KILL);
 	for (CreatureEvent* killEvent : killEvents) {
-		killEvent->executeOnKill(this, target, lastHit);
+		killEvent->executeOnKill(this, target);
 	}
 	return false;
 }
@@ -1526,7 +1529,7 @@ CreatureEventList Creature::getCreatureEvents(CreatureEventType_t type)
 }
 
 bool FrozenPathingConditionCall::isInRange(const Position& startPos, const Position& testPos,
-        const FindPathParams& fpp) const
+		const FindPathParams& fpp) const
 {
 	if (fpp.fullPathSearch) {
 		if (testPos.x > targetPos.x + fpp.maxTargetDist) {
@@ -1573,7 +1576,7 @@ bool FrozenPathingConditionCall::isInRange(const Position& startPos, const Posit
 }
 
 bool FrozenPathingConditionCall::operator()(const Position& startPos, const Position& testPos,
-        const FindPathParams& fpp, int32_t& bestMatchDist) const
+		const FindPathParams& fpp, int32_t& bestMatchDist) const
 {
 	if (!isInRange(startPos, testPos, fpp)) {
 		return false;

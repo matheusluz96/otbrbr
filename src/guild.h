@@ -1,6 +1,8 @@
 /**
+ * @file guild.h
+ * 
  * The Forgotten Server - a free and open-source MMORPG server emulator
- * Copyright (C) 2019  Mark Samman <mark.samman@gmail.com>
+ * Copyright (C) 2020 Mark Samman <mark.samman@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,8 +19,8 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef FS_GUILD_H_C00F0A1D732E4BA88FF62ACBE74D76BC
-#define FS_GUILD_H_C00F0A1D732E4BA88FF62ACBE74D76BC
+#ifndef OT_SRC_GUILD_H_
+#define OT_SRC_GUILD_H_
 
 class Player;
 

@@ -3,18 +3,10 @@ local keywordHandler = KeywordHandler:new()
 local npcHandler = NpcHandler:new(keywordHandler)
 NpcSystem.parseParameters(npcHandler)
 
-function onCreatureAppear(cid)
-	npcHandler:onCreatureAppear(cid)
-end
-function onCreatureDisappear(cid)
-	npcHandler:onCreatureDisappear(cid)
-end
-function onCreatureSay(cid, type, msg)
-	npcHandler:onCreatureSay(cid, type, msg)
-end
-function onThink()
-	npcHandler:onThink()
-end
+function onCreatureAppear(cid)			npcHandler:onCreatureAppear(cid)			end
+function onCreatureDisappear(cid)		npcHandler:onCreatureDisappear(cid)			end
+function onCreatureSay(cid, type, msg)		npcHandler:onCreatureSay(cid, type, msg)		end
+function onThink()		npcHandler:onThink()		end
 
 local config = {
 	{position = Position(32474, 31947, 7), type = 2, description = 'Tree 1'},
@@ -77,17 +69,6 @@ local function creatureSayCallback(cid, type, msg)
 	end
 	return true
 end
-
-local shopModule = ShopModule:new()
-npcHandler:addModule(shopModule)
-
-shopModule:addBuyableItem({'Broken Crossbow'}, 12407, 30)
-shopModule:addBuyableItem({'Minotaur Horn'}, 12428, 75)
-shopModule:addBuyableItem({'Piece of Archer Armor'}, 12439, 20)
-shopModule:addBuyableItem({'Piece of Warrior Armor'},  12438, 50)
-shopModule:addBuyableItem({'Purple Robe'}, 12429, 110)
-
-shopModule:addSellableItem({'Flask with Beaver Bait'}, 11100, 100)
 
 npcHandler:setCallback(CALLBACK_MESSAGE_DEFAULT, creatureSayCallback)
 npcHandler:addModule(FocusModule:new())

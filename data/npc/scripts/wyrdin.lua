@@ -2,18 +2,10 @@ local keywordHandler = KeywordHandler:new()
 local npcHandler = NpcHandler:new(keywordHandler)
 NpcSystem.parseParameters(npcHandler)
 
-function onCreatureAppear(cid)
-	npcHandler:onCreatureAppear(cid)
-end
-function onCreatureDisappear(cid)
-	npcHandler:onCreatureDisappear(cid)
-end
-function onCreatureSay(cid, type, msg)
-	npcHandler:onCreatureSay(cid, type, msg)
-end
-function onThink()
-	npcHandler:onThink()
-end
+function onCreatureAppear(cid)			npcHandler:onCreatureAppear(cid)			end
+function onCreatureDisappear(cid)		npcHandler:onCreatureDisappear(cid)			end
+function onCreatureSay(cid, type, msg)		npcHandler:onCreatureSay(cid, type, msg)		end
+function onThink()		npcHandler:onThink()		end
 
 local voices = {
 	{ text = "<mumbles> So where was I again?" },
@@ -31,7 +23,7 @@ local function creatureSayCallback(cid, type, msg)
 
 	local player = Player(cid)
 	if msgcontains(msg, "mission") then
-		if player:getStorageValue(Storage.TheWayToYalahar.QuestLine) < 1 and player:getStorageValue(Storage.ExplorerSociety.JoiningTheExplorers) >= 4 and player:getStorageValue(Storage.ExplorerSociety.QuestLine) >= 4 then
+		if player:getStorageValue(Storage.TheWayToYalahar.QuestLine) < 1 and player:getStorageValue(Storage.ExplorerSociety.JoiningtheExplorers) >= 4 and player:getStorageValue(Storage.ExplorerSociety.QuestLine) >= 4 then
 			npcHandler:say({
 				"There is indeed something that needs our attention. In the far north, a new city named Yalahar was discovered. It seems to be incredibly huge. ...",
 				"According to travelers, it's a city of glory and wonders. We need to learn as much as we can about this city and its inhabitants. ...",

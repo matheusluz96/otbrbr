@@ -2,18 +2,10 @@ local keywordHandler = KeywordHandler:new()
 local npcHandler = NpcHandler:new(keywordHandler)
 NpcSystem.parseParameters(npcHandler)
 
-function onCreatureAppear(cid)
-	npcHandler:onCreatureAppear(cid)
-end
-function onCreatureDisappear(cid)
-	npcHandler:onCreatureDisappear(cid)
-end
-function onCreatureSay(cid, type, msg)
-	npcHandler:onCreatureSay(cid, type, msg)
-end
-function onThink()
-	npcHandler:onThink()
-end
+function onCreatureAppear(cid)			npcHandler:onCreatureAppear(cid)			end
+function onCreatureDisappear(cid)		npcHandler:onCreatureDisappear(cid)			end
+function onCreatureSay(cid, type, msg)		npcHandler:onCreatureSay(cid, type, msg)		end
+function onThink()				npcHandler:onThink()					end
 
 local condition = Condition(CONDITION_FIRE)
 condition:setParameter(CONDITION_PARAM_TICKS, 30 * 1000)
@@ -51,22 +43,22 @@ local function creatureSayCallback(cid, type, msg)
 
 	local player = Player(cid)
 	if msgcontains(msg, "letter") then
-		if player:getStorageValue(Storage.Postman.Mission10) == 1 then
+		if player:getStorageValue(Storage.postman.Mission10) == 1 then
 			if player:getItemCount(2333) > 0 then
 				npcHandler:say("A letter from my Moohmy?? Do you have a letter from my Moohmy to me?", cid)
 				npcHandler.topic[cid] = 1
 			end
 		end
 	elseif msgcontains(msg, 'cookie') then
-		if player:getStorageValue(Storage.WhatAFoolish.Questline) == 31
-				and player:getStorageValue(Storage.WhatAFoolish.CookieDelivery.Markwin) ~= 1 then
+		if player:getStorageValue(Storage.WhatAFoolishQuest.Questline) == 31
+				and player:getStorageValue(Storage.WhatAFoolishQuest.CookieDelivery.Markwin) ~= 1 then
 			npcHandler:say('You bring me ... a cookie???', cid)
 			npcHandler.topic[cid] = 2
 		end
 	elseif msgcontains(msg, "yes") then
 		if npcHandler.topic[cid] == 1 then
 			npcHandler:say("Uhm, well thank you, hornless being.", cid)
-			player:setStorageValue(Storage.Postman.Mission10, 2)
+			player:setStorageValue(Storage.postman.Mission10, 2)
 			player:removeItem(2333, 1)
 			npcHandler.topic[cid] = 0
 		elseif npcHandler.topic[cid] == 2 then
@@ -76,7 +68,7 @@ local function creatureSayCallback(cid, type, msg)
 				return true
 			end
 
-			player:setStorageValue(Storage.WhatAFoolish.CookieDelivery.Markwin, 1)
+			player:setStorageValue(Storage.WhatAFoolishQuest.CookieDelivery.Markwin, 1)
 			if player:getCookiesDelivered() == 10 then
 				player:addAchievement('Allow Cookies?')
 			end

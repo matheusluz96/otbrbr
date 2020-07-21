@@ -1,8 +1,4 @@
 function Monster:onDropLoot(corpse)
-	if configManager.getNumber(configKeys.RATE_LOOT) == 0 then
-		return
-	end
-
 	local mType = self:getType()
 	if mType:isRewardBoss() then
 		corpse:registerReward()
@@ -20,17 +16,24 @@ function Monster:onDropLoot(corpse)
 			end
 		end
 
-		if player then
-			local text = ("Loot of %s: %s"):format(mType:getNameDescription(), corpse:getContentDescription())
+		if player and player:getClient().os == CLIENTOS_NEW_WINDOWS then
+			local text = ("Loot of %s: %s."):format(mType:getNameDescription(), corpse:getContentDescriptionColor())
 			local party = player:getParty()
 			if party then
 				party:broadcastPartyLoot(text)
 			else
 				player:sendTextMessage(MESSAGE_LOOT, text)
 			end
-			player:updateKillTracker(self, corpse)
+			else
+			local text = ("Loot of %s: %s."):format(mType:getNameDescription(), corpse:getContentDescription())
+			local party = player:getParty()
+			if party then
+				party:broadcastPartyLoot(text)
+			else
+				player:sendTextMessage(MESSAGE_LOOT, text)
+			end
+		player:updateKillTracker(self, corpse)
 		end
-
 	else
 		local text = ("Loot of %s: nothing (due to low stamina)"):format(mType:getNameDescription())
 		local party = player:getParty()
@@ -60,8 +63,7 @@ function Monster:onSpawn(position)
 
 		if self:getName():lower() == 'iron servant replica' then
 			local chance = math.random(100)
-			if Game.getStorageValue(GlobalStorage.ForgottenKnowledge.MechanismDiamond) >= 1
-			and Game.getStorageValue(GlobalStorage.ForgottenKnowledge.MechanismGolden) >= 1 then
+			if Game.getStorageValue(GlobalStorage.ForgottenKnowledge.MechanismDiamond) >= 1 and Game.getStorageValue(GlobalStorage.ForgottenKnowledge.MechanismGolden) >= 1 then
 				if chance > 30 then
 					local chance2 = math.random(2)
 					if chance2 == 1 then

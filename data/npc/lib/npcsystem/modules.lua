@@ -58,7 +58,7 @@ if Modules == nil then
 		end
 
 		local player = Player(cid)
-		local cost, costMessage = parameters.cost, '%d gold'
+		local cost, costMessage = parameters.cost, '%d gold coins'
 		if cost and cost > 0 then
 			if parameters.discount then
 				cost = cost - StdModule.travelDiscount(player, parameters.discount)
@@ -212,6 +212,8 @@ if Modules == nil then
 			cost = 0
 		end
 
+		local exhausts = 159321
+
 		if parameters.premium and not player:isPremium() then
 			npcHandler:say("I'm sorry, but you need a premium account in order to travel onboard our ships.", cid)
 		elseif parameters.level and player:getLevel() < parameters.level then
@@ -220,7 +222,7 @@ if Modules == nil then
 			npcHandler:say("First get rid of those blood stains! You are not going to ruin my vehicle!", cid)
 		elseif not player:removeMoneyNpc(cost) then
 			npcHandler:say("You don't have enough money.", cid)
-		elseif os.time() < getPlayerStorageValue(cid, Storage.NpcExhaust) then
+		elseif os.time() < getPlayerStorageValue(cid, exhausts) then
 			npcHandler:say('Sorry, but you need to wait three seconds before travel again.', cid)
 			player:getPosition():sendMagicEffect(CONST_ME_POFF)
 		else
@@ -234,16 +236,16 @@ if Modules == nil then
 			end
 
 			player:teleportTo(destination)
-			player:getPosition():sendMagicEffect(CONST_ME_TELEPORT)
+			destination:sendMagicEffect(CONST_ME_TELEPORT)
 
-			setPlayerStorageValue(cid, StorageNpcExhaust, 3 + os.time())
+			setPlayerStorageValue(cid, exhausts, 3 + os.time())
 			player:teleportTo(destination)
-			player:getPosition():sendMagicEffect(CONST_ME_TELEPORT)
+			destination:sendMagicEffect(CONST_ME_TELEPORT)
 
 			-- What a foolish Quest - Mission 3
-			if player:getStorageValue(Storage.WhatAFoolish.PieBoxTimer) > os.time() then
+			if player:getStorageValue(Storage.WhatAFoolishQuest.PieBoxTimer) > os.time() then
 				if destination ~= Position(32660, 31957, 15) then -- kazordoon steamboat
-					player:setStorageValue(Storage.WhatAFoolish.PieBoxTimer, 1)
+					player:setStorageValue(Storage.WhatAFoolishQuest.PieBoxTimer, 1)
 				end
 			end
 		end
@@ -1114,8 +1116,6 @@ if Modules == nil then
 		}
 
 		if not isItemFluidContainer(itemid) then
-			subType = -1
-		elseif subType == 0 then 
 			subType = -1
 		end
 

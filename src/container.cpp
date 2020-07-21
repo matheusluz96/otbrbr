@@ -1,6 +1,8 @@
 /**
+ * @file container.cpp
+ * 
  * The Forgotten Server - a free and open-source MMORPG server emulator
- * Copyright (C) 2019  Mark Samman <mark.samman@gmail.com>
+ * Copyright (C) 2020 Mark Samman <mark.samman@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -202,7 +204,33 @@ std::ostringstream& Container::getContentDescription(std::ostringstream& os) con
 			os << ", ";
 		}
 
-		os << "{" << item->getClientID() << "|" << item->getNameDescription() << "}";
+		os << item->getNameDescription();
+	}
+
+	if (firstitem) {
+		os << "nothing";
+	}
+	return os;
+}
+
+std::ostringstream& Container::getContentDescriptionColor(std::ostringstream& os) const
+{
+	bool firstitem = true;
+	for (ContainerIterator it = iterator(); it.hasNext(); it.advance()) {
+		Item* item = *it;
+
+		Container* container = item->getContainer();
+		if (container && !container->empty()) {
+			continue;
+		}
+
+		if (firstitem) {
+			firstitem = false;
+		} else {
+			os << ", ";
+		}
+
+	os << '{' << item->getClientID() << '|' << item->getNameDescription() << '}';
 	}
 
 	if (firstitem) {
@@ -379,7 +407,7 @@ ReturnValue Container::queryAdd(int32_t addIndex, const Thing& addThing, uint32_
 	}
 }
 
-ReturnValue Container::queryMaxCount(int32_t index, const Thing& thing, uint32_t count,
+ReturnValue Container::queryMaxCount(int32_t index, const Thing& thing, uint32_t amount,
 		uint32_t& maxQueryCount, uint32_t flags) const
 {
 	const Item* item = thing.getItem();
@@ -389,7 +417,7 @@ ReturnValue Container::queryMaxCount(int32_t index, const Thing& thing, uint32_t
 	}
 
 	if (hasBitSet(FLAG_NOLIMIT, flags) || hasPagination()) {
-		maxQueryCount = std::max<uint32_t>(1, count);
+		maxQueryCount = std::max<uint32_t>(1, amount);
 		return RETURNVALUE_NOERROR;
 	}
 
@@ -420,7 +448,7 @@ ReturnValue Container::queryMaxCount(int32_t index, const Thing& thing, uint32_t
 		}
 
 		maxQueryCount = freeSlots * 100 + n;
-		if (maxQueryCount < count) {
+		if (maxQueryCount < amount) {
 			return RETURNVALUE_CONTAINERNOTENOUGHROOM;
 		}
 	} else {
@@ -432,7 +460,7 @@ ReturnValue Container::queryMaxCount(int32_t index, const Thing& thing, uint32_t
 	return RETURNVALUE_NOERROR;
 }
 
-ReturnValue Container::queryRemove(const Thing& thing, uint32_t count, uint32_t flags) const
+ReturnValue Container::queryRemove(const Thing& thing, uint32_t amount, uint32_t flags) const
 {
 	int32_t index = getThingIndex(&thing);
 	if (index == -1) {
@@ -444,7 +472,7 @@ ReturnValue Container::queryRemove(const Thing& thing, uint32_t count, uint32_t 
 		return RETURNVALUE_NOTPOSSIBLE;
 	}
 
-	if (count == 0 || (item->isStackable() && count > item->getItemCount())) {
+	if (amount == 0 || (item->isStackable() && amount > item->getItemCount())) {
 		return RETURNVALUE_NOTPOSSIBLE;
 	}
 
@@ -509,10 +537,6 @@ Cylinder* Container::queryDestination(int32_t& index, const Thing &thing, Item**
 
 	bool autoStack = !hasBitSet(FLAG_IGNOREAUTOSTACK, flags);
 	if (autoStack && item->isStackable() && item->getParent() != this) {
-		if (*destItem && (*destItem)->equals(item) && (*destItem)->getItemCount() < 100) {
-			return this;
-		}
-
 		//try find a suitable item to stack with
 		uint32_t n = 0;
 		for (Item* listItem : itemlist) {
@@ -564,7 +588,7 @@ void Container::addItemBack(Item* item)
 	}
 }
 
-void Container::updateThing(Thing* thing, uint16_t itemId, uint32_t count)
+void Container::updateThing(Thing* thing, uint16_t itemId, uint32_t amount)
 {
 	int32_t index = getThingIndex(thing);
 	if (index == -1) {
@@ -578,7 +602,7 @@ void Container::updateThing(Thing* thing, uint16_t itemId, uint32_t count)
 
 	const int32_t oldWeight = item->getWeight();
 	item->setID(itemId);
-	item->setSubType(count);
+	item->setSubType(amount);
 	updateItemWeight(-oldWeight + item->getWeight());
 
 	//send change to client
@@ -611,7 +635,7 @@ void Container::replaceThing(uint32_t index, Thing* thing)
 	replacedItem->setParent(nullptr);
 }
 
-void Container::removeThing(Thing* thing, uint32_t count)
+void Container::removeThing(Thing* thing, uint32_t amount)
 {
 	Item* item = thing->getItem();
 	if (item == nullptr) {
@@ -623,8 +647,8 @@ void Container::removeThing(Thing* thing, uint32_t count)
 		return /*RETURNVALUE_NOTPOSSIBLE*/;
 	}
 
-	if (item->isStackable() && count != item->getItemCount()) {
-		uint8_t newCount = static_cast<uint8_t>(std::max<int32_t>(0, item->getItemCount() - count));
+	if (item->isStackable() && amount != item->getItemCount()) {
+		uint8_t newCount = static_cast<uint8_t>(std::max<int32_t>(0, item->getItemCount() - amount));
 		const int32_t oldWeight = item->getWeight();
 		item->setItemCount(newCount);
 		updateItemWeight(-oldWeight + item->getWeight());
@@ -670,13 +694,13 @@ size_t Container::getLastIndex() const
 
 uint32_t Container::getItemTypeCount(uint16_t itemId, int32_t subType/* = -1*/) const
 {
-	uint32_t count = 0;
+	uint32_t amount = 0;
 	for (Item* item : itemlist) {
 		if (item->getID() == itemId) {
-			count += countByType(item, subType);
+			amount += countByType(item, subType);
 		}
 	}
-	return count;
+	return amount;
 }
 
 std::map<uint32_t, uint32_t>& Container::getAllItemTypeCount(std::map<uint32_t, uint32_t>& countMap) const

@@ -2,18 +2,10 @@ local keywordHandler = KeywordHandler:new()
 local npcHandler = NpcHandler:new(keywordHandler)
 NpcSystem.parseParameters(npcHandler)
 
-function onCreatureAppear(cid)
-	npcHandler:onCreatureAppear(cid)
-end
-function onCreatureDisappear(cid)
-	npcHandler:onCreatureDisappear(cid)
-end
-function onCreatureSay(cid, type, msg)
-	npcHandler:onCreatureSay(cid, type, msg)
-end
-function onThink()
-	npcHandler:onThink()
-end
+function onCreatureAppear(cid)			npcHandler:onCreatureAppear(cid)			end
+function onCreatureDisappear(cid)		npcHandler:onCreatureDisappear(cid)			end
+function onCreatureSay(cid, type, msg)		npcHandler:onCreatureSay(cid, type, msg)		end
+function onThink()		npcHandler:onThink()		end
 
 local voices = {
 	{ text = 'Welcome to the post office!' },
@@ -29,10 +21,10 @@ local function creatureSayCallback(cid, type, msg)
 	end
 	if msgcontains(msg, "measurements") then
 		local player = Player(cid)
-		if player:getStorageValue(Storage.Postman.Mission07) >= 1 and	player:getStorageValue(Storage.Postman.MeasurementsBenjamin) ~= 1 then
+		if player:getStorageValue(Storage.postman.Mission07) >= 1 and	player:getStorageValue(Storage.postman.MeasurementsBenjamin) ~= 1 then
 			npcHandler:say("Oh they don't change that much since in the old days as... <tells a boring and confusing story about a cake, a parcel, himself and two squirrels, at least he tells you his measurements in the end> ", cid)
-			player:setStorageValue(Storage.Postman.Mission07, player:getStorageValue(Storage.Postman.Mission07) + 1)
-			player:setStorageValue(Storage.Postman.MeasurementsBenjamin, 1)
+			player:setStorageValue(Storage.postman.Mission07, player:getStorageValue(Storage.postman.Mission07) + 1)
+			player:setStorageValue(Storage.postman.MeasurementsBenjamin, 1)
 			npcHandler.topic[cid] = 0
 	else
 			npcHandler:say("...", cid)

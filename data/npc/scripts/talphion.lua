@@ -2,18 +2,10 @@ local keywordHandler = KeywordHandler:new()
 local npcHandler = NpcHandler:new(keywordHandler)
 NpcSystem.parseParameters(npcHandler)
 
-function onCreatureAppear(cid)
-	npcHandler:onCreatureAppear(cid)
-end
-function onCreatureDisappear(cid)
-	npcHandler:onCreatureDisappear(cid)
-end
-function onCreatureSay(cid, type, msg)
-	npcHandler:onCreatureSay(cid, type, msg)
-end
-function onThink()
-	npcHandler:onThink()
-end
+function onCreatureAppear(cid)			npcHandler:onCreatureAppear(cid)			end
+function onCreatureDisappear(cid)		npcHandler:onCreatureDisappear(cid)			end
+function onCreatureSay(cid, type, msg)		npcHandler:onCreatureSay(cid, type, msg)		end
+function onThink()				npcHandler:onThink()					end
 
 local function creatureSayCallback(cid, type, msg)
 	if not npcHandler:isFocused(cid) then
@@ -21,7 +13,7 @@ local function creatureSayCallback(cid, type, msg)
 	end
 	local player = Player(cid)
 	if msgcontains(msg, "dress pattern") then
-		if player:getStorageValue(Storage.Postman.Mission06) == 3 then
+		if player:getStorageValue(Storage.postman.Mission06) == 3 then
 			if npcHandler.topic[cid] < 1 then
 				npcHandler:say("DRESS FLATTEN? WHO WANTS ME TO FLATTEN A DRESS?", cid)
 				npcHandler.topic[cid] = 1
@@ -36,7 +28,7 @@ local function creatureSayCallback(cid, type, msg)
 				npcHandler.topic[cid] = 4
 			elseif npcHandler.topic[cid] == 4 then
 				npcHandler:say("AH YES! I WORKED ON THE DRESS PATTERN FOR THOSE UNIFORMS. STAINLESS TROUSERES, STEAM DRIVEN BOOTS! ANOTHERMARVEL TO BEHOLD! I'LL SENT A COPY TO KEVIN IMEDIATELY!", cid)
-				player:setStorageValue(Storage.Postman.Mission06, 4)
+				player:setStorageValue(Storage.postman.Mission06, 4)
 				npcHandler.topic[cid] = 0
 			end
 		end

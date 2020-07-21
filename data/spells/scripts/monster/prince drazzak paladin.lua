@@ -1,6 +1,7 @@
 local storage = 674531
+local voc = {3, 7}
 
-local area = {
+	arr = {
 	{0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0},
 	{0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0},
 	{0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0},
@@ -16,10 +17,10 @@ local area = {
 	{0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0},
 	}
 
-local createArea = createCombatArea(area)
+local area = createCombatArea(arr)
 
 local combat = Combat()
-combat:setArea(createArea)
+combat:setArea(area)
 
 function onTargetTile(creature, pos)
     local creatureTable = {}
@@ -44,8 +45,7 @@ function onTargetTile(creature, pos)
                 local max = 8000
                 local player = Player(creatureTable[r])
 
-                if isPlayer(creatureTable[r]) == true
-                and table.contains({VOCATION.CLIENT_ID.PALADIN}, player:getVocation():getClientId()) then
+                if isPlayer(creatureTable[r]) == true and isInArray(voc, player:getVocation():getId()) then
                     doTargetCombatHealth(creature, creatureTable[r], COMBAT_ENERGYDAMAGE, -min, -max, CONST_ME_NONE)
                 elseif isMonster(creatureTable[r]) == true then
                     doTargetCombatHealth(creature, creatureTable[r], COMBAT_ENERGYDAMAGE, -min, -max, CONST_ME_NONE)

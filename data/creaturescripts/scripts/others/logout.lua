@@ -1,12 +1,13 @@
 function onLogout(player)
-	local playerId = player:getId()
-	if nextUseStaminaTime[playerId] ~= nil then
-		nextUseStaminaTime[playerId] = nil
-	end
-	player:saveSpecialStorage()
-	player:setStorageValue(Storage.ExerciseDummyExhaust, 0)
+    local playerId = player:getId()
+    if nextUseStaminaTime[playerId] ~= nil then
+        nextUseStaminaTime[playerId] = nil
+    end
 
-	local stats = player:inBossFight()
+    player:saveSpecialStorage()
+	player:setStorageValue(Storage.Exercisedummy.exaust, 0)
+
+ 	local stats = player:inBossFight()
 	if stats then
 		local boss = Monster(stats.bossId)
 		-- Player logged out (or died) in the middle of a boss fight, store his damageOut and stamina
@@ -18,6 +19,7 @@ function onLogout(player)
 			stats.stamina = player:getStamina()
 		end
 	end
+	
 	player:setStorageValue(17101,0)
 	return true
 end

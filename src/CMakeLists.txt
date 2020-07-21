@@ -1,4 +1,4 @@
-set(otbr_SRC
+set(tfs_SRC
 	${CMAKE_CURRENT_LIST_DIR}/otpch.cpp
 	${CMAKE_CURRENT_LIST_DIR}/account.cpp
 	${CMAKE_CURRENT_LIST_DIR}/actions.cpp
@@ -28,7 +28,6 @@ set(otbr_SRC
 	${CMAKE_CURRENT_LIST_DIR}/guild.cpp
 	${CMAKE_CURRENT_LIST_DIR}/groups.cpp
 	${CMAKE_CURRENT_LIST_DIR}/house.cpp
-	${CMAKE_CURRENT_LIST_DIR}/housetile.cpp
 	${CMAKE_CURRENT_LIST_DIR}/inbox.cpp
 	${CMAKE_CURRENT_LIST_DIR}/ioguild.cpp
 	${CMAKE_CURRENT_LIST_DIR}/iologindata.cpp
@@ -53,10 +52,12 @@ set(otbr_SRC
 	${CMAKE_CURRENT_LIST_DIR}/outputmessage.cpp
 	${CMAKE_CURRENT_LIST_DIR}/party.cpp
 	${CMAKE_CURRENT_LIST_DIR}/player.cpp
+	${CMAKE_CURRENT_LIST_DIR}/prey.cpp
 	${CMAKE_CURRENT_LIST_DIR}/position.cpp
 	${CMAKE_CURRENT_LIST_DIR}/protocol.cpp
 	${CMAKE_CURRENT_LIST_DIR}/protocolgame.cpp
 	${CMAKE_CURRENT_LIST_DIR}/protocollogin.cpp
+	${CMAKE_CURRENT_LIST_DIR}/protocolold.cpp
 	${CMAKE_CURRENT_LIST_DIR}/protocolstatus.cpp
 	${CMAKE_CURRENT_LIST_DIR}/raids.cpp
 	${CMAKE_CURRENT_LIST_DIR}/reward.cpp
@@ -82,3 +83,4 @@ set(otbr_SRC
 	${CMAKE_CURRENT_LIST_DIR}/wildcardtree.cpp
 	${CMAKE_CURRENT_LIST_DIR}/xtea.cpp
 	PARENT_SCOPE)
+

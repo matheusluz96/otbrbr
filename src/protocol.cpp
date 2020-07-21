@@ -1,6 +1,8 @@
 /**
+ * @file protocol.cpp
+ * 
  * The Forgotten Server - a free and open-source MMORPG server emulator
- * Copyright (C) 2019  Mark Samman <mark.samman@gmail.com>
+ * Copyright (C) 2020 Mark Samman <mark.samman@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -65,6 +67,7 @@ OutputMessage_ptr Protocol::getOutputBuffer(int32_t size)
 
 void Protocol::XTEA_encrypt(OutputMessage& msg) const
 {
+
 	// The message must be a multiple of 8
 	size_t paddingBytes = msg.getLength() % 8u;
 	if (paddingBytes != 0) {
@@ -80,6 +83,7 @@ bool Protocol::XTEA_decrypt(NetworkMessage& msg) const
 	if (((msg.getLength() - 6) & 7) != 0) {
 		return false;
 	}
+
 
 	uint8_t* buffer = msg.getBuffer() + msg.getBufferPosition();
 	xtea::decrypt(buffer, msg.getLength() - 6, key);

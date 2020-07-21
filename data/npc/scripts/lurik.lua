@@ -2,18 +2,10 @@ local keywordHandler = KeywordHandler:new()
 local npcHandler = NpcHandler:new(keywordHandler)
 NpcSystem.parseParameters(npcHandler)
 
-function onCreatureAppear(cid)
-	npcHandler:onCreatureAppear(cid)
-end
-function onCreatureDisappear(cid)
-	npcHandler:onCreatureDisappear(cid)
-end
-function onCreatureSay(cid, type, msg)
-	npcHandler:onCreatureSay(cid, type, msg)
-end
-function onThink()
-	npcHandler:onThink()
-end
+function onCreatureAppear(cid)			npcHandler:onCreatureAppear(cid)			end
+function onCreatureDisappear(cid)		npcHandler:onCreatureDisappear(cid)			end
+function onCreatureSay(cid, type, msg)		npcHandler:onCreatureSay(cid, type, msg)		end
+function onThink()		npcHandler:onThink()		end
 
 local function creatureSayCallback(cid, type, msg)
 	local player = Player(cid)
@@ -57,7 +49,6 @@ local function creatureSayCallback(cid, type, msg)
 			npcHandler.topic[cid] = 0
 			player:setStorageValue(Storage.ExplorerSociety.TheIceMusic, 62)
 			player:setStorageValue(Storage.ExplorerSociety.QuestLine, 62)
-			player:setStorageValue(Storage.ExplorerSociety.FamilyBroochDoor, 1)
 		elseif player:getStorageValue(Storage.TheIceIslands.Questline) == 32 then
 			npcHandler:say({
 				"You are the one who became an honorary barbarian! The one who made friends with the grim local musher and helped the shamans of Nibelor! The one they call old bearhugg ... erm ... I mean indeed I might have a mission for someone like you ...",

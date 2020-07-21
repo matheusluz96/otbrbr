@@ -1,6 +1,8 @@
 /**
+ * @file spells.cpp
+ * 
  * The Forgotten Server - a free and open-source MMORPG server emulator
- * Copyright (C) 2019  Mark Samman <mark.samman@gmail.com>
+ * Copyright (C) 2020 Mark Samman <mark.samman@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1205,6 +1207,19 @@ ReturnValue RuneSpell::canExecuteAction(const Player* player, const Position& to
 	}
 
 	return RETURNVALUE_NOERROR;
+}
+
+bool RuneSpell::canUseRune(const Player* player, bool ignoreLevel /* =false*/) {
+    if (player->hasFlag(PlayerFlag_CannotUseSpells)) {
+        return false;
+    }
+    if (player->hasFlag(PlayerFlag_IgnoreSpellCheck)) {
+        return true;
+    }
+
+    return (player->getLevel() >= getLevel() || ignoreLevel) &&
+           player->getBaseMagicLevel() >= getMagicLevel() &&
+           (vocSpellMap.empty() || vocSpellMap.find(player->getVocationId()) != vocSpellMap.end());
 }
 
 bool RuneSpell::executeUse(Player* player, Item* item, const Position&, Thing* target, const Position& toPosition, bool isHotkey)

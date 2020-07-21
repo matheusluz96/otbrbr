@@ -1,6 +1,8 @@
 /**
+ * @file actions.cpp
+ * 
  * The Forgotten Server - a free and open-source MMORPG server emulator
- * Copyright (C) 2019  Mark Samman <mark.samman@gmail.com>
+ * Copyright (C) 2020 Mark Samman <mark.samman@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -84,8 +86,7 @@ Event_ptr Actions::getEvent(const std::string& nodeName)
 
 bool Actions::registerEvent(Event_ptr event, const pugi::xml_node& node)
 {
-	//event is guaranteed to be an Action
-	Action_ptr action{static_cast<Action*>(event.release())};
+	Action_ptr action{static_cast<Action*>(event.release())}; //event is guaranteed to be an Action
 
 	pugi::xml_attribute attr;
 	if ((attr = node.attribute("itemid"))) {
@@ -93,15 +94,13 @@ bool Actions::registerEvent(Event_ptr event, const pugi::xml_node& node)
 
 		auto result = useItemMap.emplace(id, std::move(*action));
 		if (!result.second) {
-			std::cout << "[Warning - Actions::registerEvent] Duplicate \
-								registered item with id: " << id << std::endl;
+			std::cout << "[Warning - Actions::registerEvent] Duplicate registered item with id: " << id << std::endl;
 		}
 		return result.second;
 	} else if ((attr = node.attribute("fromid"))) {
 		pugi::xml_attribute toIdAttribute = node.attribute("toid");
 		if (!toIdAttribute) {
-			std::cout << "[Warning - Actions::registerEvent] Missing toid in \
-									fromid: " << attr.as_string() << std::endl;
+			std::cout << "[Warning - Actions::registerEvent] Missing toid in fromid: " << attr.as_string() << std::endl;
 			return false;
 		}
 
@@ -111,9 +110,7 @@ bool Actions::registerEvent(Event_ptr event, const pugi::xml_node& node)
 
 		auto result = useItemMap.emplace(iterId, *action);
 		if (!result.second) {
-			std::cout << "[Warning - Actions::registerEvent] Duplicate \
-			registered item with id: " << iterId << " in fromid: " << fromId
-											<< ", toid: " << toId << std::endl;
+			std::cout << "[Warning - Actions::registerEvent] Duplicate registered item with id: " << iterId << " in fromid: " << fromId << ", toid: " << toId << std::endl;
 		}
 
 		bool success = result.second;
@@ -279,14 +276,13 @@ ReturnValue Actions::canUse(const Player* player, const Position& pos)
 ReturnValue Actions::canUse(const Player* player, const Position& pos, const Item* item)
 {
 	Action* action = getAction(item);
-	if (action != nullptr) {
+	if (action) {
 		return action->canExecuteAction(player, pos);
 	}
 	return RETURNVALUE_NOERROR;
 }
 
-ReturnValue Actions::canUseFar(const Creature* creature, const Position& toPos,
-										bool checkLineOfSight, bool checkFloor)
+ReturnValue Actions::canUseFar(const Creature* creature, const Position& toPos, bool checkLineOfSight, bool checkFloor)
 {
 	if (toPos.x == 0xFFFF) {
 		return RETURNVALUE_NOERROR;
@@ -294,8 +290,7 @@ ReturnValue Actions::canUseFar(const Creature* creature, const Position& toPos,
 
 	const Position& creaturePos = creature->getPosition();
 	if (checkFloor && creaturePos.z != toPos.z) {
-		return creaturePos.z > toPos.z ?
-					RETURNVALUE_FIRSTGOUPSTAIRS : RETURNVALUE_FIRSTGODOWNSTAIRS;
+		return creaturePos.z > toPos.z ? RETURNVALUE_FIRSTGOUPSTAIRS : RETURNVALUE_FIRSTGODOWNSTAIRS;
 	}
 
 	if (!Position::areInRange<7, 5>(toPos, creaturePos)) {
@@ -343,7 +338,7 @@ ReturnValue Actions::internalUseItem(Player* player, const Position& pos, uint8_
 	}
 
 	Action* action = getAction(item);
-	if (action != nullptr) {
+	if (action) {
 		if (action->isScripted()) {
 			if (action->executeUse(player, item, pos, nullptr, pos, isHotkey)) {
 				return RETURNVALUE_NOERROR;
@@ -384,9 +379,9 @@ ReturnValue Actions::internalUseItem(Player* player, const Position& pos, uint8_
 		} else {
 			openContainer = container;
 		}
-
+		
 		//reward chest
-		if (container->getRewardChest() != nullptr) {
+		if (container->getRewardChest()) {
 			RewardChest* myRewardChest = player->getRewardChest();
 			if (myRewardChest->size() == 0) {
 				return RETURNVALUE_REWARDCHESTISEMPTY;
@@ -413,9 +408,8 @@ ReturnValue Actions::internalUseItem(Player* player, const Position& pos, uint8_
 		uint32_t corpseOwner = container->getCorpseOwner();
 		if (container->isRewardCorpse()) {
 			//only players who participated in the fight can open the corpse
-			if (player->getGroup()->id >= 4 || player->getAccountType() >= 3) {
+			if (player->getGroup()->id >= 4 || player->getAccountType() >= 3)
 				return RETURNVALUE_YOUCANTOPENCORPSEADM;
-			}
 			if (!player->getReward(container->getIntAttr(ITEM_ATTRIBUTE_DATE), false)) {
 				return RETURNVALUE_YOUARENOTTHEOWNER;
 			}
@@ -474,7 +468,7 @@ bool Actions::useItemEx(Player* player, const Position& fromPos, const Position&
 	player->setNextAction(OTSYS_TIME() + g_config.getNumber(ConfigManager::EX_ACTIONS_DELAY_INTERVAL));
 
 	Action* action = getAction(item);
-	if (action == nullptr) {
+	if (!action) {
 		player->sendCancelMessage(RETURNVALUE_CANNOTUSETHISOBJECT);
 		return false;
 	}
@@ -526,17 +520,17 @@ Action::Action(LuaScriptInterface* interface) :
 bool Action::configureEvent(const pugi::xml_node& node)
 {
 	pugi::xml_attribute allowFarUseAttr = node.attribute("allowfaruse");
-	if (allowFarUseAttr != nullptr) {
+	if (allowFarUseAttr) {
 		allowFarUse = allowFarUseAttr.as_bool();
 	}
 
 	pugi::xml_attribute blockWallsAttr = node.attribute("blockwalls");
-	if (blockWallsAttr != nullptr) {
+	if (blockWallsAttr) {
 		checkLineOfSight = blockWallsAttr.as_bool();
 	}
 
 	pugi::xml_attribute checkFloorAttr = node.attribute("checkfloor");
-	if (checkFloorAttr != nullptr) {
+	if (checkFloorAttr) {
 		checkFloor = checkFloorAttr.as_bool();
 	}
 
@@ -545,8 +539,8 @@ bool Action::configureEvent(const pugi::xml_node& node)
 
 namespace {
 
-bool enterMarket(Player* player, Item*, const Position&, Thing*,
-														const Position&, bool) {
+bool enterMarket(Player* player, Item*, const Position&, Thing*, const Position&, bool)
+{
 	if (player->getLastDepotId() == -1) {
 		return false;
 	}
@@ -555,10 +549,10 @@ bool enterMarket(Player* player, Item*, const Position&, Thing*,
 	return true;
 }
 
-bool useImbueShrine(Player* player, Item*, const Position&, Thing* target,
-												const Position& toPos, bool) {
-	Item* item = target != nullptr ? target->getItem() : nullptr;
-	if (item == nullptr) {
+bool useImbueShrine(Player* player, Item*, const Position&, Thing* target, const Position& toPos, bool)
+{
+	Item* item = target ? target->getItem() : nullptr;
+	if (!item) {
 		player->sendTextMessage(MESSAGE_STATUS_SMALL, "This item is not imbuable.");
 		return false;
 	}
@@ -566,25 +560,24 @@ bool useImbueShrine(Player* player, Item*, const Position&, Thing* target,
 	const ItemType& it = Item::items[item->getID()];
 	if(it.imbuingSlots <= 0 ) {
 		player->sendTextMessage(MESSAGE_STATUS_SMALL, "This item is not imbuable.");
-		return false;
+		return false;		
 	}
 
 	if (item->getTopParent() != player) {
-		player->sendTextMessage(MESSAGE_STATUS_SMALL, "You have to pick up the item to imbue it.");
+		player->sendTextMessage(MESSAGE_STATUS_SMALL, "You cannot imbue an equipped item.");
 		return false;
 	}
-
-	if ((toPos.y & 0x40) == 0) {
-    player->sendTextMessage(MESSAGE_STATUS_SMALL,
-            "You cannot imbue an equipped item.");
-		return false;
+	
+	if (!(toPos.y & 0x40)) {
+		player->sendImbuementWindow(target->getItem());
+		return true;
 	}
 
 	player->sendImbuementWindow(target->getItem());
 	return true;
 }
 
-}  // namespace
+}
 
 bool Action::loadFunction(const pugi::xml_attribute& attr, bool isScripted)
 {
@@ -595,8 +588,7 @@ bool Action::loadFunction(const pugi::xml_attribute& attr, bool isScripted)
 		function = useImbueShrine;
 	} else {
 		if (!isScripted) {
-			std::cout << "[Warning - Action::loadFunction] Function \""
-						<< functionName << "\" does not exist." << std::endl;
+			std::cout << "[Warning - Action::loadFunction] Function \"" << functionName << "\" does not exist." << std::endl;
 			return false;
 		}
 	}
@@ -616,15 +608,14 @@ ReturnValue Action::canExecuteAction(const Player* player, const Position& toPos
 {
 	if (!allowFarUse) {
 		return g_actions->canUse(player, toPos);
+	} else {
+		return g_actions->canUseFar(player, toPos, checkLineOfSight, checkFloor);
 	}
-
-	return g_actions->canUseFar(player, toPos, checkLineOfSight, checkFloor);
 }
 
-Thing* Action::getTarget(Player* player, Creature* targetCreature,
-						const Position& toPosition, uint8_t toStackPos) const
+Thing* Action::getTarget(Player* player, Creature* targetCreature, const Position& toPosition, uint8_t toStackPos) const
 {
-	if (targetCreature != nullptr) {
+	if (targetCreature) {
 		return targetCreature;
 	}
 	return g_game.internalGetThing(player, toPosition, toStackPos, 0, STACKPOS_USETARGET);

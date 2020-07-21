@@ -1,6 +1,8 @@
-/**
+﻿/**
+ * @file items.cpp
+ * 
  * The Forgotten Server - a free and open-source MMORPG server emulator
- * Copyright (C) 2019  Mark Samman <mark.samman@gmail.com>
+ * Copyright (C) 2020 Mark Samman <mark.samman@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -449,15 +451,15 @@ void Items::parseItemNode(const pugi::xml_node& itemNode, uint16_t id)
 			it.extraDefense = pugi::cast<int32_t>(valueAttribute.value());
 		} else if (tmpStrValue == "attack") {
 			it.attack = pugi::cast<int32_t>(valueAttribute.value());
-		} else if (tmpStrValue == "rotateto") {
-			it.rotateTo = pugi::cast<int32_t>(valueAttribute.value());
 		} else if (tmpStrValue == "wrapcontainer") {
 			it.wrapContainer = valueAttribute.as_bool();
 		} else if (tmpStrValue == "imbuingslots") {
 			it.imbuingSlots = pugi::cast<int32_t>(valueAttribute.value());
-		} else if (tmpStrValue == "wrapableto" || tmpStrValue == "unwrapableto") {
+		} else if (tmpStrValue == "wrapableto") {
 			it.wrapableTo = pugi::cast<int32_t>(valueAttribute.value());
 			it.wrapable = true;
+		} else if (tmpStrValue == "rotateto")  {
+			it.rotateTo = pugi::cast<int32_t>(valueAttribute.value());
 		} else if (tmpStrValue == "moveable" || tmpStrValue == "movable") {
 			it.moveable = valueAttribute.as_bool();
 		} else if (tmpStrValue == "blockprojectile") {
@@ -678,6 +680,8 @@ void Items::parseItemNode(const pugi::xml_node& itemNode, uint16_t id)
 			}
 		} else if (tmpStrValue == "range") {
 			it.shootRange = pugi::cast<uint16_t>(valueAttribute.value());
+		} else if (tmpStrValue == "unmoveableditem") {
+		it.unmoveabledItem = pugi::cast<uint16_t>(valueAttribute.value());
 		} else if (tmpStrValue == "stopduration") {
 			it.stopTime = valueAttribute.as_bool();
 		} else if (tmpStrValue == "decayto") {

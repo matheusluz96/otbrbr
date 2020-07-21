@@ -1,6 +1,8 @@
 /**
+ * @file player.cpp
+ * 
  * The Forgotten Server - a free and open-source MMORPG server emulator
- * Copyright (C) 2019 Mark Samman <mark.samman@gmail.com>
+ * Copyright (C) 2020 Mark Samman <mark.samman@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,6 +35,7 @@
 #include "movement.h"
 #include "scheduler.h"
 #include "weapons.h"
+#include "tools.h"
 
 extern ConfigManager g_config;
 extern Game g_game;
@@ -43,18 +46,16 @@ extern Weapons* g_weapons;
 extern CreatureEvents* g_creatureEvents;
 extern Events* g_events;
 extern Imbuements* g_imbuements;
+extern Prey g_prey;
 
 MuteCountMap Player::muteCountMap;
 
 uint32_t Player::playerAutoID = 0x10010000;
 
 Player::Player(ProtocolGame_ptr p) :
-                                    Creature(),
-                                    lastPing(OTSYS_TIME()),
-                                    lastPong(lastPing),
-                                    inbox(new Inbox(ITEM_INBOX)),
-                                    client(std::move(p)) {
-  inbox->incrementReferenceCounter();
+	Creature(), preyData(PREY_SLOTCOUNT), lastPing(OTSYS_TIME()), lastPong(lastPing), inbox(new Inbox(ITEM_INBOX)), client(std::move(p))
+{
+	inbox->incrementReferenceCounter();
 }
 
 Player::~Player()
@@ -193,6 +194,7 @@ std::string Player::getDescription(int32_t lookDistance) const
 			s << ", which has " << memberCount << " members, " << guild->getMembersOnline().size() << " of them online.";
 		}
 	}
+
 	return s.str();
 }
 
@@ -486,6 +488,10 @@ void Player::addSkillAdvance(skills_t skill, uint64_t count)
 		}
 	}
 
+	if (skill == SKILL_LEVEL) {
+		updateRerollPrice();
+	}
+
 	skills[skill].tries += count;
 
 	uint32_t newPercent;
@@ -549,15 +555,7 @@ void Player::addContainer(uint8_t cid, Container* container)
 		return;
 	}
 
-	if (!container) {
-		return;
-	}
-
 	if (container->getID() == ITEM_BROWSEFIELD) {
-		container->incrementReferenceCounter();
-	}
-
-	if (container->getID() == ITEM_GOLD_POUCH) {
 		container->incrementReferenceCounter();
 	}
 
@@ -566,9 +564,6 @@ void Player::addContainer(uint8_t cid, Container* container)
 		OpenContainer& openContainer = it->second;
 		Container* oldContainer = openContainer.container;
 		if (oldContainer->getID() == ITEM_BROWSEFIELD) {
-			oldContainer->decrementReferenceCounter();
-		}
-		if (oldContainer->getID() == ITEM_GOLD_POUCH) {
 			oldContainer->decrementReferenceCounter();
 		}
 
@@ -725,7 +720,7 @@ bool Player::canWalkthrough(const Creature* creature) const
 
 	const Player* player = creature->getPlayer();
 	const Monster* monster = creature->getMonster();
-	const Npc* npc = creature->getNpc();
+
 	if (monster) {
 		if (!monster->isPet()) {
 			return false;
@@ -735,7 +730,7 @@ bool Player::canWalkthrough(const Creature* creature) const
 
 	if (player) {
 		const Tile* playerTile = player->getTile();
-		if (!playerTile || (!playerTile->hasFlag(TILESTATE_NOPVPZONE) && !playerTile->hasFlag(TILESTATE_PROTECTIONZONE) && player->getLevel() > static_cast<uint32_t>(g_config.getNumber(ConfigManager::PROTECTION_LEVEL)) && g_game.getWorldType() != WORLD_TYPE_NO_PVP)) {
+		if (!playerTile || (!playerTile->hasFlag(TILESTATE_NOPVPZONE) && !playerTile->hasFlag(TILESTATE_PROTECTIONZONE) && player->getLevel() > static_cast<uint32_t>(g_config.getNumber(ConfigManager::PROTECTION_LEVEL)))) {
 			return false;
 		}
 
@@ -757,13 +752,10 @@ bool Player::canWalkthrough(const Creature* creature) const
 
 		thisPlayer->setLastWalkthroughPosition(creature->getPosition());
 		return true;
-	} else if (npc) {
-		const Tile* tile = npc->getTile();
-		const HouseTile* houseTile = dynamic_cast<const HouseTile*>(tile);
-		return (houseTile != nullptr);
+	} else {
+		return false;
 	}
 
-	return false;
 }
 
 bool Player::canWalkthroughEx(const Creature* creature) const
@@ -781,14 +773,9 @@ bool Player::canWalkthroughEx(const Creature* creature) const
 	}
 
 	const Player* player = creature->getPlayer();
-	const Npc* npc = creature->getNpc();
 	if (player) {
 		const Tile* playerTile = player->getTile();
-		return playerTile && (playerTile->hasFlag(TILESTATE_NOPVPZONE) || playerTile->hasFlag(TILESTATE_PROTECTIONZONE) || player->getLevel() <= static_cast<uint32_t>(g_config.getNumber(ConfigManager::PROTECTION_LEVEL)) || g_game.getWorldType() == WORLD_TYPE_NO_PVP);
-	} else if (npc) {
-		const Tile* tile = npc->getTile();
-		const HouseTile* houseTile = dynamic_cast<const HouseTile*>(tile);
-		return (houseTile != nullptr);
+		return playerTile && (playerTile->hasFlag(TILESTATE_NOPVPZONE) || playerTile->hasFlag(TILESTATE_PROTECTIONZONE) || player->getLevel() <= static_cast<uint32_t>(g_config.getNumber(ConfigManager::PROTECTION_LEVEL)));
 	} else {
 		return false;
 	}
@@ -863,7 +850,7 @@ DepotLocker* Player::getDepotLocker(uint32_t depotId)
 		for (uint8_t i = g_config.getNumber(ConfigManager::DEPOT_BOXES); i > 0; i--) {
 			if (DepotChest* depotBox = getDepotChest(i, false)) {
 				depotBox->setParent(it->second->getItemByIndex(0)->getContainer());
- 			}
+			}
 		}
 		return it->second;
 	}
@@ -872,6 +859,7 @@ DepotLocker* Player::getDepotLocker(uint32_t depotId)
 	depotLocker->setDepotId(depotId);
 	depotLocker->internalAddThing(Item::CreateItem(ITEM_MARKET));
 	depotLocker->internalAddThing(inbox);
+	depotLocker->internalAddThing(Item::CreateItem(ITEM_SUPPLY_STASH));
 	Container* depotChest = Item::CreateItemAsContainer(ITEM_DEPOT, g_config.getNumber(ConfigManager::DEPOT_BOXES));
 	for (uint8_t i = g_config.getNumber(ConfigManager::DEPOT_BOXES); i > 0; i--) {
 		DepotChest* depotBox = getDepotChest(i, true);
@@ -1040,10 +1028,6 @@ void Player::sendAddContainerItem(const Container* container, const Item* item)
 		return;
 	}
 
-	if (!container) {
-		return;
-	}
-
 	for (const auto& it : openContainers) {
 		const OpenContainer& openContainer = it.second;
 		if (openContainer.container != container) {
@@ -1052,15 +1036,6 @@ void Player::sendAddContainerItem(const Container* container, const Item* item)
 
 		uint16_t slot = openContainer.index;
 		if (container->getID() == ITEM_BROWSEFIELD) {
-			uint16_t containerSize = container->size() - 1;
-			uint16_t pageEnd = openContainer.index + container->capacity() - 1;
-			if (containerSize > pageEnd) {
-				slot = pageEnd;
-				item = container->getItemByIndex(pageEnd);
-			} else {
-				slot = containerSize;
-			}
-		} else if (container->getID() == ITEM_GOLD_POUCH) {
 			uint16_t containerSize = container->size() - 1;
 			uint16_t pageEnd = openContainer.index + container->capacity() - 1;
 			if (containerSize > pageEnd) {
@@ -1104,10 +1079,6 @@ void Player::sendUpdateContainerItem(const Container* container, uint16_t slot, 
 void Player::sendRemoveContainerItem(const Container* container, uint16_t slot)
 {
 	if (!client) {
-		return;
-	}
-
-	if (!container) {
 		return;
 	}
 
@@ -1558,7 +1529,7 @@ void Player::setNextActionTask(SchedulerTask* task)
 
 	if (task) {
 		actionTaskEvent = g_scheduler.addEvent(task);
-		resetIdleTime();
+		//resetIdleTime();
 	}
 }
 
@@ -1586,7 +1557,7 @@ void Player::onThink(uint32_t interval)
 			kickPlayer(true);
 		} else if (client && idleTime == 60000 * kickAfterMinutes) {
 			std::ostringstream ss;
-			ss << "There was no variation in your behaviour for " << kickAfterMinutes << " minutes. You will be disconnected in one minute if there is no change in your actions until then.";
+			ss << "You have been idle for " << kickAfterMinutes << " minutes. You will be disconnected in one minute if you are still idle then.";
 			client->sendTextMessage(TextMessage(MESSAGE_STATUS_WARNING, ss.str()));
 		}
 	}
@@ -1740,7 +1711,8 @@ void Player::addExperience(Creature* source, uint64_t exp, bool sendText/* = fal
 	experience += exp;
 
 	if (sendText) {
-		std::string expString = std::to_string(exp) + (exp != 1 ? " experience points." : " experience point.");
+		std::string expString = std::to_string(exp) + (exp != 1 ? " experience points" : " experience point");
+		expString += hasActivePreyBonus(BONUS_XP_BONUS, source) ? " (active prey bonus)." : ".";
 
 		TextMessage message(MESSAGE_EXPERIENCE, "You gained " + expString);
 		message.position = position;
@@ -1783,6 +1755,7 @@ void Player::addExperience(Creature* source, uint64_t exp, bool sendText/* = fal
 
 		updateBaseSpeed();
 		setBaseSpeed(getBaseSpeed());
+		//setBaseXpGain(g_game.getExperienceStage(level)*100);
 		g_game.changeSpeed(this, 0);
 		g_game.addCreatureHealth(this);
 
@@ -2020,7 +1993,7 @@ BlockType_t Player::blockHit(Creature* attacker, CombatType_t combatType, int32_
 				if (info >> 8) {
 					Imbuement* ib = g_imbuements->getImbuement(info & 0xFF);
 					const int16_t& absorbPercent2 = ib->absorbPercent[combatTypeToIndex(combatType)];
-
+					
 					if (absorbPercent2 != 0) {
 						damage -= std::ceil(damage * (absorbPercent2 / 100.));
 					}
@@ -2063,8 +2036,7 @@ void Player::death(Creature* lastHitCreature)
 				if (damageDealer) {
 					playerDmg += cb.total;
 					sumLevels += damageDealer->getLevel();
-				}
-				else{
+				} else{
 					othersDmg += cb.total;
 				}
 			}
@@ -2183,6 +2155,7 @@ void Player::death(Creature* lastHitCreature)
 		sendSkills();
 		sendReLoginWindow(unfairFightReduction);
 		sendBlessStatus();
+
 		if (getSkull() == SKULL_BLACK) {
 			health = 40;
 			mana = 0;
@@ -3388,13 +3361,7 @@ void Player::doAttacking(uint32_t)
 		bool classicSpeed = g_config.getBoolean(ConfigManager::CLASSIC_ATTACK_SPEED);
 
 		if (weapon) {
-			if (!weapon->interruptSwing()) {
-				result = weapon->useWeapon(this, tool, attackedCreature);
-			} else if (!classicSpeed && !canDoAction()) {
-				delay = getNextActionTime();
-			} else {
-				result = weapon->useWeapon(this, tool, attackedCreature);
-			}
+			result = weapon->useWeapon(this, tool, attackedCreature);
 		} else {
 			result = Weapon::useFist(this, attackedCreature);
 		}
@@ -3754,6 +3721,7 @@ void Player::gainExperience(uint64_t gainExp, Creature* source)
 		return;
 	}
 
+	applyBonusExperience(gainExp, source);
 	addExperience(source, gainExp, true);
 }
 
@@ -3958,6 +3926,16 @@ bool Player::getOutfitAddons(const Outfit& outfit, uint8_t& addons) const
 void Player::setSex(PlayerSex_t newSex)
 {
 	sex = newSex;
+}
+
+void Player::setStamina(uint16_t stamina)
+{
+	uint16_t oldStamina = staminaMinutes;
+	staminaMinutes = std::min<uint16_t>(2520, stamina);
+	sendStats();
+	if (oldStamina - staminaMinutes > 0) {
+		decreasePreyTimeLeft(oldStamina - staminaMinutes);
+	}
 }
 
 Skulls_t Player::getSkull() const
@@ -4380,7 +4358,7 @@ void Player::sendUnjustifiedPoints()
 
 		auto dayMax = ((isRed ? 2 : 1) * g_config.getNumber(ConfigManager::DAY_KILLS_TO_RED));
 		auto weekMax = ((isRed ? 2 : 1) * g_config.getNumber(ConfigManager::WEEK_KILLS_TO_RED));
-		auto monthMax = ((isRed ? 2 : 1) * g_config.getNumber(ConfigManager::MONTH_KILLS_TO_RED));
+		auto monthMax = ((isRed ? 2 : 1) * g_config.getNumber(ConfigManager::MONTH_KILLS_TO_RED));		
 
 		uint8_t dayProgress = std::min(std::round(dayKills / dayMax * 100), 100.0);
 		uint8_t weekProgress = std::min(std::round(weekKills / weekMax * 100), 100.0);
@@ -4875,6 +4853,45 @@ uint16_t Player::getFreeBackpackSlots() const
 	return counter;
 }
 
+StreakBonus_t Player::getStreakDaysBonus()const {
+    int32_t value;
+    StreakBonus_t bonus;
+
+    getStorageValue(DAILYREWARDSTORAGE_STREAKDAYS,value);
+
+    if(value <= 1)
+        bonus = STREAKBONUS_NOBONUS;
+    else if(value == 2)
+        bonus = STREAKBONUS_HEALTHBONUS;
+    else if(value == 3)
+        bonus = STREAKBONUS_MANABONUS;
+    else if(value == 4)
+        bonus = STREAKBONUS_STAMINABONUS;
+    else if(value == 5)
+        bonus = STREAKBONUS_DOUBLEHEALTHBONUS;
+    else if(value == 6)
+        bonus = STREAKBONUS_DOUBLEMANABONUS;
+    else
+        bonus = STREAKBONUS_SOULBONUS;
+
+    return bonus;
+}
+
+void Player::sendRestingAreaIcon(uint16_t currentIcons) const {
+    if (client && getProtocolVersion() >= 1140) {
+        if (hasBitSet(ICON_PIGEON, currentIcons)) {
+            bool activeResting = false;
+
+            if (getStreakDaysBonus() > STREAKBONUS_NOBONUS) {
+                activeResting = true;
+            }
+            client->sendRestingAreaIcon(true, activeResting);
+        } else {
+            client->sendRestingAreaIcon(false); // clear
+        }
+    }
+}
+
 void Player::onEquipImbueItem(Imbuement* imbuement)
 {
 	// check skills
@@ -4900,6 +4917,11 @@ void Player::onEquipImbueItem(Imbuement* imbuement)
 		}
 	}
 
+	if (requestUpdate) {
+		sendStats();
+		sendSkills();
+	}
+
 	// speed
 	if (imbuement->speed != 0) {
 		g_game.changeSpeed(this, imbuement->speed);
@@ -4907,13 +4929,8 @@ void Player::onEquipImbueItem(Imbuement* imbuement)
 
 	// capacity
 	if (imbuement->capacity != 0) {
-		requestUpdate = true;
-		bonusCapacity = (capacity * imbuement->capacity)/100;
-	}
-
-	if (requestUpdate) {
+		capacity += imbuement->capacity;
 		sendStats();
-		sendSkills();
 	}
 
 	return;
@@ -4944,6 +4961,11 @@ void Player::onDeEquipImbueItem(Imbuement* imbuement)
 		}
 	}
 
+	if (requestUpdate) {
+		sendStats();
+		sendSkills();
+	}
+
 	// speed
 	if (imbuement->speed != 0) {
 		g_game.changeSpeed(this, -imbuement->speed);
@@ -4951,32 +4973,320 @@ void Player::onDeEquipImbueItem(Imbuement* imbuement)
 
 	// capacity
 	if (imbuement->capacity != 0) {
-		requestUpdate = true;
-		bonusCapacity = 0;
-	}
-
-	if (requestUpdate) {
+		capacity -= imbuement->capacity;
 		sendStats();
-		sendSkills();
 	}
 
 	return;
 }
 
-/*******************************************************************************
- * Interfaces
- ******************************************************************************/
-
-error_t Player::SetAccountInterface(account::Account *account) {
-  if (account == nullptr) {
-    return account::ERROR_NULLPTR;
-  }
-
-  account_ = account;
-  return account::ERROR_NO;
+void Player::generatePreyData()
+{
+	for (uint8_t preySlotId = 0; preySlotId < PREY_SLOTCOUNT; preySlotId++) {
+		if (preySlotId != 2) {
+			changePreyDataState(preySlotId, STATE_SELECTION);
+		}
+	}
 }
 
-error_t Player::GetAccountInterface(account::Account *account) {
-  account = account_;
-  return account::ERROR_NO;
+ReturnValue Player::changePreyDataState(uint8_t preySlotId, PreyState state, uint8_t monsterIndex)
+{
+	if (preySlotId >= PREY_SLOTCOUNT) {
+		return RETURNVALUE_PREYINTERNALERROR;
+	}
+
+	PreyData& currentPrey = preyData[preySlotId];
+
+	bool success = false;
+
+	if ((currentPrey.state != STATE_ACTIVE && state == STATE_SELECTION) || ((currentPrey.state == STATE_ACTIVE || currentPrey.state == STATE_SELECTION_CHANGE_MONSTER) && state == STATE_SELECTION_CHANGE_MONSTER)) {
+		std::vector<std::string> elim;
+		elim.reserve(9 * 3);
+		for (uint8_t slotId = 0; slotId < PREY_SLOTCOUNT; slotId++) {
+			if (slotId != preySlotId) {
+				PreyData& anotherPrey = preyData[slotId];
+				elim.insert(elim.end(), anotherPrey.preyList.begin(), anotherPrey.preyList.end());
+			}
+		}
+		std::sort(elim.begin(), elim.end());
+
+		currentPrey.preyList = std::move(selectRandom(g_prey.getPreyNames(), 9, elim));
+		success = true;
+	}
+	else if (currentPrey.state == STATE_ACTIVE && state == STATE_SELECTION) {
+		auto it = std::find(currentPrey.preyList.begin(), currentPrey.preyList.end(), currentPrey.preyMonster);
+		if (it != currentPrey.preyList.end()) {
+			currentPrey.preyList.erase(it);
+
+			std::vector<std::string> elim;
+			elim.reserve(9 * PREY_SLOTCOUNT);
+			for (uint8_t slotId = 0; slotId < PREY_SLOTCOUNT; slotId++) {
+				PreyData& anotherPrey = preyData[slotId];
+				elim.insert(elim.end(), anotherPrey.preyList.begin(), anotherPrey.preyList.end());
+			}
+
+			std::sort(elim.begin(), elim.end());
+			std::vector<std::string> tmpVector = selectRandom(g_prey.getPreyNames(), 1, elim);
+			if (tmpVector.size() > 0) {
+				currentPrey.preyList.emplace_back(tmpVector[0]);
+				std::sort(currentPrey.preyList.begin(), currentPrey.preyList.end());
+			}
+
+			success = true;
+		}
+	}
+	else if ((currentPrey.state == STATE_SELECTION || currentPrey.state == STATE_SELECTION_CHANGE_MONSTER) && state == STATE_ACTIVE) {
+		if (monsterIndex >= 0 && monsterIndex < currentPrey.preyList.size()) {
+			currentPrey.preyMonster = currentPrey.preyList[monsterIndex];
+			currentPrey.timeLeft = g_prey.getPreyDuration();
+
+			if (currentPrey.state == STATE_SELECTION) {
+				currentPrey.bonusGrade = uniform_random(1, 10);
+				const BonusEntry& bonus = g_prey.getAvailableBonuses()[uniform_random(0, static_cast<int32_t>(g_prey.getAvailableBonuses().size()) - 1)];
+				currentPrey.bonusType = bonus.type;
+				currentPrey.bonusValue = bonus.initialValue + bonus.step * (currentPrey.bonusGrade - 1);
+			}
+
+			success = true;
+		}
+		else {
+			return RETURNVALUE_PREYINTERNALERROR;
+		}
+	}
+	else if (state == STATE_INACTIVE || STATE_LOCKED) {
+		currentPrey.preyList.clear();
+		success = true;
+	}
+
+	if (success) {
+		currentPrey.state = state;
+		sendPreyData(preySlotId);
+		return RETURNVALUE_NOERROR;
+	}
+	return RETURNVALUE_PREYINTERNALERROR;
+}
+
+void Player::setPreyData(std::vector<PreyData>&& preyData)
+{
+	this->preyData = preyData;
+}
+
+void Player::serializePreyData(PropWriteStream& propWriteStream) const
+{
+	for (uint8_t preySlotId = 0; preySlotId < PREY_SLOTCOUNT; preySlotId++) {
+		const PreyData& currentPrey = preyData[preySlotId];
+		propWriteStream.write<uint8_t>(preySlotId);
+		propWriteStream.write<uint64_t>(currentPrey.lastReroll);
+		propWriteStream.write<PreyState>(currentPrey.state);
+		if (currentPrey.state == STATE_ACTIVE) {
+			propWriteStream.writeString(currentPrey.preyMonster);
+			propWriteStream.write<uint16_t>(currentPrey.timeLeft);
+			propWriteStream.write<BonusType>(currentPrey.bonusType);
+			propWriteStream.write<uint16_t>(currentPrey.bonusValue);
+			propWriteStream.write<uint8_t>(currentPrey.bonusGrade);
+		}
+		else if (currentPrey.state == STATE_SELECTION_CHANGE_MONSTER) {
+			propWriteStream.write<BonusType>(currentPrey.bonusType);
+			propWriteStream.write<uint16_t>(currentPrey.bonusValue);
+			propWriteStream.write<uint8_t>(currentPrey.bonusGrade);
+		}
+		propWriteStream.write<uint8_t>(currentPrey.preyList.size());
+		for (const std::string& preyName : currentPrey.preyList) {
+			propWriteStream.writeString(preyName);
+		}
+	}
+}
+
+void Player::updateRerollPrice() {
+	uint32_t price = g_prey.getRerollPricePerLevel() * level;
+	sendRerollPrice(price);
+}
+
+ReturnValue Player::rerollPreyData(uint8_t preySlotId)
+{
+	if (preySlotId >= PREY_SLOTCOUNT) {
+		return RETURNVALUE_PREYINTERNALERROR;
+	}
+
+	PreyData& currentPrey = preyData[preySlotId];
+	if (static_cast<int64_t>(OTSYS_TIME() - currentPrey.lastReroll) < static_cast<int64_t>(g_prey.getTimeToFreeReroll() * 60 * 1000)) {
+		uint64_t rerollPrice = g_prey.getRerollPricePerLevel() * level;
+		if (!g_game.removeMoney(this, rerollPrice, 0, true)) {
+			return RETURNVALUE_NOTENOUGHMONEYFORREROLL;
+		}
+		else {
+			sendResourceData(RESOURCETYPE_BANK_GOLD, getBankBalance());
+			sendResourceData(RESOURCETYPE_INVENTORY_GOLD, getMoney());
+		}
+	}
+	else {
+		currentPrey.lastReroll = OTSYS_TIME();
+	}
+
+	if (currentPrey.state == STATE_ACTIVE) {
+		changePreyDataState(preySlotId, STATE_SELECTION_CHANGE_MONSTER);
+		return RETURNVALUE_NOERROR;
+	}
+	else if (currentPrey.state == STATE_SELECTION || currentPrey.state == STATE_SELECTION_CHANGE_MONSTER) {
+		changePreyDataState(preySlotId, currentPrey.state);
+		return RETURNVALUE_NOERROR;
+	}
+
+	return RETURNVALUE_PREYINTERNALERROR;
+}
+
+ReturnValue Player::rerollPreyBonus(uint8_t preySlotId)
+{
+	if (preySlotId >= PREY_SLOTCOUNT) {
+		return RETURNVALUE_PREYINTERNALERROR;
+	}
+
+	if (bonusRerollCount <= 0) {
+		return RETURNVALUE_NOAVAILABLEBONUSREROLL;
+	}
+
+	PreyData& currentPrey = preyData[preySlotId];
+	if (currentPrey.state == STATE_ACTIVE || currentPrey.state == STATE_SELECTION_CHANGE_MONSTER) {
+		const std::vector<BonusEntry>& availableBonuses = g_prey.getAvailableBonuses();
+		std::vector<BonusEntry> possibles = availableBonuses;
+		if (currentPrey.bonusGrade == 10) {
+			auto it = std::find_if(possibles.begin(), possibles.end(), [&](const BonusEntry& v) { return v.type == currentPrey.bonusType; });
+			if (it != possibles.end()) {
+				possibles.erase(it);
+			}
+		}
+		else {
+			currentPrey.bonusGrade = uniform_random(currentPrey.bonusGrade + 1, 10);
+		}
+
+		const BonusEntry& randomBonus = possibles[uniform_random(0, possibles.size() - 1)];
+		currentPrey.bonusType = randomBonus.type;
+		currentPrey.bonusValue = randomBonus.initialValue + randomBonus.step * (currentPrey.bonusGrade - 1);
+		currentPrey.timeLeft = g_prey.getPreyDuration();
+
+		setBonusRerollCount(bonusRerollCount - 1);
+		sendPreyData(preySlotId);
+		sendResourceData(RESOURCETYPE_PREY_BONUS_REROLLS, getBonusRerollCount());
+		return RETURNVALUE_NOERROR;
+	}
+
+	return RETURNVALUE_PREYINTERNALERROR;
+}
+
+uint16_t Player::getFreeRerollTime(uint8_t preySlotId)
+{
+	if (preySlotId >= PREY_SLOTCOUNT) {
+		return 0;
+	}
+
+	PreyData& currentPrey = preyData[preySlotId];
+	int64_t time = (static_cast<int64_t>(currentPrey.lastReroll) - OTSYS_TIME() + g_prey.getTimeToFreeReroll() * 60 * 1000) / 60 / 1000;
+	return std::min<int64_t>(std::max<int64_t>(0, time), std::numeric_limits<uint16_t>::max());
+}
+
+uint16_t Player::getPreyTimeLeft(uint8_t preySlotId)
+{
+	if (preySlotId >= PREY_SLOTCOUNT) {
+		return 0;
+	}
+
+	PreyData& currentPrey = preyData[preySlotId];
+	return currentPrey.timeLeft;
+}
+
+void Player::decreasePreyTimeLeft(uint16_t amount)
+{
+	amount = std::abs(amount);
+	for (uint8_t preySlotId = 0; preySlotId < PREY_SLOTCOUNT; preySlotId++) {
+		PreyData& currentPrey = preyData[preySlotId];
+		if (currentPrey.state == STATE_ACTIVE) {
+			currentPrey.timeLeft = std::max(0, currentPrey.timeLeft - amount * 60);
+			if (currentPrey.timeLeft > 0) {
+				sendPreyTimeLeft(preySlotId);
+			}
+			else {
+				changePreyDataState(preySlotId, STATE_SELECTION);
+			}
+		}
+	}
+}
+
+uint16_t Player::getPreyBonusLoot(MonsterType* mType)
+{
+	if (!mType) {
+		return 0;
+	}
+
+	for (uint8_t preySlotId = 0; preySlotId < PREY_SLOTCOUNT; preySlotId++) {
+		PreyData& currentPrey = preyData[preySlotId];
+		if (currentPrey.state == STATE_ACTIVE && currentPrey.bonusType == BONUS_IMPROVED_LOOT && currentPrey.preyMonster == mType->name) {
+			return currentPrey.bonusValue;
+		}
+	}
+	return 0;
+}
+
+bool Player::applyBonusExperience(uint64_t& gainExp, Creature* source)
+{
+	if (!source) {
+		return false;
+	}
+
+	for (uint8_t preySlotId = 0; preySlotId < PREY_SLOTCOUNT; preySlotId++) {
+		PreyData& currentPrey = preyData[preySlotId];
+		if (currentPrey.state == STATE_ACTIVE && currentPrey.bonusType == BONUS_XP_BONUS && currentPrey.preyMonster == source->getName()) {
+			gainExp *= (currentPrey.bonusValue / 100. + 1);
+			return true;
+		}
+	}
+	return false;
+}
+
+bool Player::applyBonusDamageBoost(CombatDamage& damage, Creature* opponent)
+{
+	if (!opponent) {
+		return false;
+	}
+
+	for (uint8_t preySlotId = 0; preySlotId < PREY_SLOTCOUNT; preySlotId++) {
+		PreyData& currentPrey = preyData[preySlotId];
+		if (currentPrey.state == STATE_ACTIVE && currentPrey.bonusType == BONUS_DAMAGE_BOOST && currentPrey.preyMonster == opponent->getName()) {
+			damage.primary.value += (damage.primary.value * currentPrey.bonusValue / 100.);
+			damage.secondary.value += (damage.secondary.value * currentPrey.bonusValue / 100.);
+			return true;
+		}
+	}
+	return false;
+}
+
+bool Player::applyBonusDamageReduction(CombatDamage& damage, Creature* opponent)
+{
+	if (!opponent) {
+		return false;
+	}
+
+	for (uint8_t preySlotId = 0; preySlotId < PREY_SLOTCOUNT; preySlotId++) {
+		PreyData& currentPrey = preyData[preySlotId];
+		if (currentPrey.state == STATE_ACTIVE && currentPrey.bonusType == BONUS_DAMAGE_REDUCTION && currentPrey.preyMonster == opponent->getName()) {
+			damage.primary.value -= (damage.primary.value * currentPrey.bonusValue / 100.);
+			damage.secondary.value -= (damage.secondary.value * currentPrey.bonusValue / 100.);
+			return true;
+		}
+	}
+	return false;
+}
+
+bool Player::hasActivePreyBonus(BonusType type, Creature* source)
+{
+	if (!source) {
+		return false;
+	}
+
+	for (uint8_t preySlotId = 0; preySlotId < PREY_SLOTCOUNT; preySlotId++) {
+		PreyData& currentPrey = preyData[preySlotId];
+		if (currentPrey.state == STATE_ACTIVE && currentPrey.bonusType == type && currentPrey.preyMonster == source->getName()) {
+			return true;
+		}
+	}
+	return false;
 }

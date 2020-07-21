@@ -2,7 +2,7 @@
  * @file modules.h
  * 
  * The Forgotten Server - a free and open-source MMORPG server emulator
- * Copyright (C) 2019 Mark Samman <mark.samman@gmail.com>
+ * Copyright (C) 2020 Mark Samman <mark.samman@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -83,13 +83,13 @@ class Modules final : public BaseEvents
 		Modules& operator=(const Modules&) = delete;
 	
 		void executeOnRecvbyte(Player* player, NetworkMessage& msg, uint8_t byte) const;
-		Module* getEventByRecvbyte(uint8_t recvbyte, bool force);
 
 	protected:
 		LuaScriptInterface& getScriptInterface() override;
 		std::string getScriptBaseName() const override;
 		Event_ptr getEvent(const std::string& nodeName) override;
 		bool registerEvent(Event_ptr  event, const pugi::xml_node& node) override;
+		Module* getEventByRecvbyte(uint8_t recvbyte, bool force);
 		void clear(bool) override final;
 
 		typedef std::map<uint8_t, Module> ModulesList;

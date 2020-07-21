@@ -908,9 +908,7 @@ local function revertLava()
 	end
 	return true
 end
-local function lavaGrounds (cid)
-	local creature = Creature(cid)
-	if not creature then return true end
+local function lavaGrounds (creature)
 	local summoncount = creature:getSummons()
 	if #summoncount < 4 then
 		for i = 1, 4 do
@@ -951,6 +949,6 @@ local function lavaGrounds (cid)
 end
 function onCastSpell(creature, var)
 	creature:say('THE GROUND BEGINS TO HEAT UP RAPIDLY!', TALKTYPE_MONSTER_YELL)
-	addEvent(lavaGrounds, 3 * 1000, creature:getId())
+	addEvent(lavaGrounds, 3 * 1000, creature)
 	return
 end

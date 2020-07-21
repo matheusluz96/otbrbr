@@ -44,7 +44,7 @@ function onUse(player, item, fromPosition, target, toPosition, isHotkey)
 
 		player:addOutfit(useItem.female)
 		player:addOutfit(useItem.male)
-		player:getPosition():sendMagicEffect(CONST_ME_GIFT_WRAPS)
+		player:getPosition():sendMagicEffect(useItem.effect)
 		item:remove()
 	end
 	return true

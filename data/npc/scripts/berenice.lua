@@ -2,18 +2,10 @@ local keywordHandler = KeywordHandler:new()
 local npcHandler = NpcHandler:new(keywordHandler)
 NpcSystem.parseParameters(npcHandler)
 
-function onCreatureAppear(cid)
-	npcHandler:onCreatureAppear(cid)
-end
-function onCreatureDisappear(cid)
-	npcHandler:onCreatureDisappear(cid)
-end
-function onCreatureSay(cid, type, msg)
-	npcHandler:onCreatureSay(cid, type, msg)
-end
-function onThink()
-	npcHandler:onThink()
-end
+function onCreatureAppear(cid)			npcHandler:onCreatureAppear(cid)			end
+function onCreatureDisappear(cid)		npcHandler:onCreatureDisappear(cid)			end
+function onCreatureSay(cid, type, msg)		npcHandler:onCreatureSay(cid, type, msg)		end
+function onThink()				npcHandler:onThink()					end
 
 local function creatureSayCallback(cid, type, msg)
 	if not npcHandler:isFocused(cid) then
@@ -21,6 +13,7 @@ local function creatureSayCallback(cid, type, msg)
 	end
 
 	local player = Player(cid)
+
 	if msgcontains(msg, "mission") then
 		if player:getStorageValue(Storage.ExplorerSociety.CalassaQuest) == 2 then
 			npcHandler:say("OH! So you have safely returned from Calassa! Congratulations, were you able to retrieve the logbook?", cid)
@@ -35,7 +28,6 @@ local function creatureSayCallback(cid, type, msg)
 			npcHandler.topic[cid] = 2
 		elseif npcHandler.topic[cid] == 4 then
 			npcHandler:say("Captain Max will bring you to Calassa whenever you are ready. Please try to retrieve the missing logbook which must be in one of the sunken shipwrecks.", cid)
-			player:setStorageValue(Storage.ExplorerSociety.CalassaDoor, 1)
 			player:setStorageValue(Storage.ExplorerSociety.CalassaQuest, 1)
 			npcHandler.topic[cid] = 0
 		elseif player:getStorageValue(Storage.ExplorerSociety.CalassaQuest) == 2 then
@@ -70,5 +62,4 @@ local function creatureSayCallback(cid, type, msg)
 end
 
 npcHandler:setCallback(CALLBACK_MESSAGE_DEFAULT, creatureSayCallback)
-
 npcHandler:addModule(FocusModule:new())

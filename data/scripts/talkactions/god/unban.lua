@@ -1,6 +1,6 @@
-local unban = TalkAction("/unban")
+local talk = TalkAction("/unban")
 
-function unban.onSay(player, words, param)
+function talk.onSay(player, words, param)
 	if not player:getGroup():getAccess() or player:getAccountType() < ACCOUNT_TYPE_GOD then
 		return true
 	end
@@ -22,5 +22,5 @@ function unban.onSay(player, words, param)
 	return false
 end
 
-unban:separator(" ")
-unban:register()
+talk:separator(" ")
+talk:register()

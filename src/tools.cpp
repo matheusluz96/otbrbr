@@ -1,6 +1,8 @@
 /**
+ * @file tools.cpp
+ * 
  * The Forgotten Server - a free and open-source MMORPG server emulator
- * Copyright (C) 2019  Mark Samman <mark.samman@gmail.com>
+ * Copyright (C) 2020 Mark Samman <mark.samman@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1271,9 +1273,6 @@ const char* getReturnMessage(ReturnValue value)
 		case RETURNVALUE_YOUCANNOTTRADETHISHOUSE:
 			return "You can not trade this house.";
 
-		case RETURNVALUE_YOUDONTHAVEREQUIREDPROFESSION:
-			return "You don't have the required profession.";
-
 		case RETURNVALUE_NOTENOUGHFISTLEVEL:
 			return "You do not have enough fist level";
 
@@ -1294,6 +1293,15 @@ const char* getReturnMessage(ReturnValue value)
 
 		case RETURNVALUE_NOTENOUGHFISHLEVEL:
 			return "You do not have enough fishing level";
+
+		case RETURNVALUE_PREYINTERNALERROR:
+			return "An internal error occurred. Please try again.";
+
+		case RETURNVALUE_NOTENOUGHMONEYFORREROLL:
+			return "Not enough money for reroll.";
+
+		case RETURNVALUE_NOAVAILABLEBONUSREROLL:
+			return "You don't have any available bonus reroll.";
 
 		default: // RETURNVALUE_NOTPOSSIBLE, etc
 			return "Sorry, not possible.";

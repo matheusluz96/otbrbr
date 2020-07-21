@@ -2,18 +2,10 @@ local keywordHandler = KeywordHandler:new()
 local npcHandler = NpcHandler:new(keywordHandler)
 NpcSystem.parseParameters(npcHandler)
 
-function onCreatureAppear(cid)
-	npcHandler:onCreatureAppear(cid)
-end
-function onCreatureDisappear(cid)
-	npcHandler:onCreatureDisappear(cid)
-end
-function onCreatureSay(cid, type, msg)
-	npcHandler:onCreatureSay(cid, type, msg)
-end
-function onThink()
-	npcHandler:onThink()
-end
+function onCreatureAppear(cid)			npcHandler:onCreatureAppear(cid)			end
+function onCreatureDisappear(cid)		npcHandler:onCreatureDisappear(cid)			end
+function onCreatureSay(cid, type, msg)		npcHandler:onCreatureSay(cid, type, msg)		end
+function onThink()				npcHandler:onThink()					end
 
 keywordHandler:addKeyword({'job'}, StdModule.say, {npcHandler = npcHandler, text = "I'm merely a humble druid like so many others here. I may not be the most talented of healers, but I am gifted with a special atunement to the elements."})
 keywordHandler:addKeyword({'nature'}, StdModule.say, {npcHandler = npcHandler, text = "For me, nature is the harmony of the elements. This harmony can be disturbed by certain events, but nature always finds its way back to harmony in the end."})
@@ -38,6 +30,17 @@ local function creatureSayCallback(cid, type, msg)
 			'Perhaps we would fare better if only we forgot words and dealt purely in feelings. Then perhaps all of us could hear the wonderful melody of nature.'
 		}, cid)
 	end
+	local player = Player(cid)
+	if (msgcontains(msg, 'research notes')) then
+		if(player:getStorageValue(Storage.ShadownofYalahar.QuestStart) == 1) and player:getStorageValue(Storage.ShadownofYalahar.Cerdras) < 1 then
+		selfSay("I see no harm in sending him my notes. I hope it will help him in his efforts. ...", cid)
+		npcHandler:say("Maybe you could persuade him to use the time my research saves him in touch with nature. I am sure this will help him focus his mind on his studies.", cid)
+		player:setStorageValue(Storage.ShadownofYalahar.Questline, player:getStorageValue(Storage.ShadownofYalahar.Questline) + 1)
+		setPlayerStorageValue(cid, 82960, getPlayerStorageValue(cid, 82960) + 1) -- quest log
+		player:setStorageValue(Storage.ShadownofYalahar.Cerdras, 1)
+		npcHandler.topic[cid] = 0
+	    end
+  	end
 	return true
 end
 

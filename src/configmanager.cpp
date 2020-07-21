@@ -1,6 +1,8 @@
 /**
+ * @file configmanager.cpp
+ * 
  * The Forgotten Server - a free and open-source MMORPG server emulator
- * Copyright (C) 2019  Mark Samman <mark.samman@gmail.com>
+ * Copyright (C) 2020 Mark Samman <mark.samman@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,9 +22,9 @@
 #include "otpch.h"
 
 #if __has_include("luajit/lua.hpp")
-  #include <luajit/lua.hpp>
+#include <luajit/lua.hpp>
 #else
-  #include <lua.hpp>
+#include <lua.hpp>
 #endif
 
 #include "configmanager.h"
@@ -133,10 +135,11 @@ bool ConfigManager::load()
 
 		integer[MARKET_OFFER_DURATION] = getGlobalNumber(L, "marketOfferDuration", 30 * 24 * 60 * 60);
 
-		integer[VERSION] = getGlobalNumber(L, "clientVersion", CLIENT_VERSION);
+		integer[VERSION_MIN] = getGlobalNumber(L, "clientVersionMin", CLIENT_VERSION_MIN);
+		integer[VERSION_MAX] = getGlobalNumber(L, "clientVersionMax", CLIENT_VERSION_MAX);
 		integer[FREE_DEPOT_LIMIT] = getGlobalNumber(L, "freeDepotLimit", 2000);
 		integer[PREMIUM_DEPOT_LIMIT] = getGlobalNumber(L, "premiumDepotLimit", 8000);
-		integer[DEPOT_BOXES] = getGlobalNumber(L, "depotBoxes", 19);
+		integer[DEPOT_BOXES] = getGlobalNumber(L, "depotBoxes", 17);
 	}
 
 	boolean[ALLOW_CHANGEOUTFIT] = getGlobalBoolean(L, "allowChangeOutfit", true);
@@ -159,12 +162,11 @@ bool ConfigManager::load()
 	boolean[REMOVE_WEAPON_AMMO] = getGlobalBoolean(L, "removeWeaponAmmunition", true);
 	boolean[REMOVE_WEAPON_CHARGES] = getGlobalBoolean(L, "removeWeaponCharges", true);
 	boolean[REMOVE_POTION_CHARGES] = getGlobalBoolean(L, "removeChargesFromPotions", true);
+	boolean[STOREMODULES] = getGlobalBoolean(L, "gamestoreByModules", true);
 	boolean[SERVER_SAVE_NOTIFY_MESSAGE] = getGlobalBoolean(L, "serverSaveNotifyMessage", true);
 	boolean[SERVER_SAVE_CLEAN_MAP] = getGlobalBoolean(L, "serverSaveCleanMap", false);
 	boolean[SERVER_SAVE_CLOSE] = getGlobalBoolean(L, "serverSaveClose", false);
-	boolean[FORCE_MONSTERTYPE_LOAD] = getGlobalBoolean(L, "forceMonsterTypesOnLoad", true);
 	boolean[SERVER_SAVE_SHUTDOWN] = getGlobalBoolean(L, "serverSaveShutdown", true);
-	boolean[STOREMODULES] = getGlobalBoolean(L, "gamestoreByModules", true);
 
 	string[DEFAULT_PRIORITY] = getGlobalString(L, "defaultPriority", "high");
 	string[SERVER_NAME] = getGlobalString(L, "serverName", "");
@@ -210,9 +212,7 @@ bool ConfigManager::load()
 	integer[BLACK_SKULL_DURATION] = getGlobalNumber(L, "blackSkullDuration", 45);
 	integer[ORANGE_SKULL_DURATION] = getGlobalNumber(L, "orangeSkullDuration", 7);
 	integer[SERVER_SAVE_NOTIFY_DURATION] = getGlobalNumber(L, "serverSaveNotifyDuration", 5);
-
-	integer[PUSH_DELAY] = getGlobalNumber(L, "pushDelay", 1000);
-	integer[PUSH_DISTANCE_DELAY] = getGlobalNumber(L, "pushDistanceDelay", 1500);
+	integer[NETWORK_ATTACK_THRESHOLD] = getGlobalNumber(L, "networkAttackThreshold", 10);
 
 	floating[RATE_MONSTER_HEALTH] = getGlobalFloat(L, "rateMonsterHealth", 1.0);
 	floating[RATE_MONSTER_ATTACK] = getGlobalFloat(L, "rateMonsterAttack", 1.0);
@@ -243,19 +243,19 @@ const std::string& ConfigManager::getString(string_config_t what) const
 	return string[what];
 }
 
-int32_t ConfigManager::getNumber(integer_config_t what) const
+int16_t ConfigManager::getShortNumber(integer_config_t what) const
 {
 	if (what >= LAST_INTEGER_CONFIG) {
-		std::cout << "[Warning - ConfigManager::getNumber] Accessing invalid index: " << what << std::endl;
+		std::cout << "[Warning - ConfigManager::getShortNumber] Accessing invalid index: " << what << std::endl;
 		return 0;
 	}
 	return integer[what];
 }
 
-int16_t ConfigManager::getShortNumber(integer_config_t what) const
+int32_t ConfigManager::getNumber(integer_config_t what) const
 {
 	if (what >= LAST_INTEGER_CONFIG) {
-		std::cout << "[Warning - ConfigManager::getShortNumber] Accessing invalid index: " << what << std::endl;
+		std::cout << "[Warning - ConfigManager::getNumber] Accessing invalid index: " << what << std::endl;
 		return 0;
 	}
 	return integer[what];

@@ -12,18 +12,10 @@ local speech = {
 	"The times of the fastest growth have come to an end, however, and we have to slow down in order not to risk the structural integrity of the Spike. But we are on our way and have to do everything possible to defend the Spike."
 }
 
-function onCreatureAppear(cid)
-	npcHandler:onCreatureAppear(cid)
-end
-function onCreatureDisappear(cid)
-	npcHandler:onCreatureDisappear(cid)
-end
-function onCreatureSay(cid, type, msg)
-	npcHandler:onCreatureSay(cid, type, msg)
-end
-function onThink()
-	npcHandler:onThink()
-end
+function onCreatureAppear(cid)				npcHandler:onCreatureAppear(cid)			end
+function onCreatureDisappear(cid)			npcHandler:onCreatureDisappear(cid)			end
+function onCreatureSay(cid, type, msg)		npcHandler:onCreatureSay(cid, type, msg)	end
+function onThink()							npcHandler:onThink()						end
 
 function creatureSayCallback(cid, type, msg)
 	if not npcHandler:isFocused(cid) then

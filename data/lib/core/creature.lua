@@ -28,16 +28,13 @@ function Creature.getClosestFreePosition(self, position, maxRadius, mustBeReacha
 	return Position()
 end
 
+
 function Creature.getMonster(self)
 	return self:isMonster() and self or nil
 end
 
 function Creature.getPlayer(self)
 	return self:isPlayer() and self or nil
-end
-
-function Creature.isContainer(self)
-	return false
 end
 
 function Creature.isItem(self)
@@ -53,10 +50,6 @@ function Creature.isNpc(self)
 end
 
 function Creature.isPlayer(self)
-	return false
-end
-
-function Creature.isTeleport(self)
 	return false
 end
 
@@ -121,8 +114,8 @@ function Creature:removeSummon(monster)
 
 	summon:setTarget(nil)
 	summon:setFollowCreature(nil)
-	summon:setDropLoot(true)
-	summon:setSkillLoss(true)
+	summon:setDropLoot(false)
+	summon:setSkillLoss(false)
 	summon:setMaster(nil)
 
 	return true
@@ -169,31 +162,4 @@ function Creature:addDamageCondition(target, type, list, damage, period, rounds)
 
 	target:addCondition(condition)
 	return true
-end
-
-function Creature.checkCreatureInsideDoor(player, toPosition)
-	local creature = Tile(toPosition):getTopCreature()
-	if creature then
-		toPosition.x = toPosition.x + 1
-		local query = Tile(toPosition):queryAdd(creature, bit.bor(FLAG_IGNOREBLOCKCREATURE, FLAG_PATHFINDING))
-		if query ~= RETURNVALUE_NOERROR then
-			toPosition.x = toPosition.x - 1
-			toPosition.y = toPosition.y + 1
-			query = Tile(toPosition):queryAdd(creature, bit.bor(FLAG_IGNOREBLOCKCREATURE, FLAG_PATHFINDING))
-		end
-		if query ~= RETURNVALUE_NOERROR then
-			toPosition.y = toPosition.y - 2
-			query = Tile(toPosition):queryAdd(creature, bit.bor(FLAG_IGNOREBLOCKCREATURE, FLAG_PATHFINDING))
-		end
-		if query ~= RETURNVALUE_NOERROR then
-			toPosition.x = toPosition.x - 1
-			toPosition.y = toPosition.y + 1
-			query = Tile(toPosition):queryAdd(creature, bit.bor(FLAG_IGNOREBLOCKCREATURE, FLAG_PATHFINDING))
-		end
-		if query ~= RETURNVALUE_NOERROR then
-			player:sendCancelMessage(RETURNVALUE_NOTPOSSIBLE)
-			return true
-		end
-		creature:teleportTo(toPosition, true)
-	end
 end

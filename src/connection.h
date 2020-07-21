@@ -2,7 +2,7 @@
  * @file connection.h
  * 
  * The Forgotten Server - a free and open-source MMORPG server emulator
- * Copyright (C) 2019 Mark Samman <mark.samman@gmail.com>
+ * Copyright (C) 2020 Mark Samman <mark.samman@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -115,6 +115,7 @@ class Connection : public std::enable_shared_from_this<Connection>
 
 		void closeSocket();
 		void internalSend(const OutputMessage_ptr& msg);
+		bool detectAttack(const uint32_t currentPacketChecksum);
 
 		boost::asio::ip::tcp::socket& getSocket() {
 			return socket;
@@ -144,6 +145,7 @@ class Connection : public std::enable_shared_from_this<Connection>
 		uint32_t serverNameTime;
 		bool receivedName;
 		bool receivedLastChar;
+		std::unordered_map<uint32_t , uint32_t> checksumsMap;
 };
 
 #endif

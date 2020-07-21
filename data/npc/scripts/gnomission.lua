@@ -2,18 +2,10 @@ local keywordHandler = KeywordHandler:new()
 local npcHandler = NpcHandler:new(keywordHandler)
 NpcSystem.parseParameters(npcHandler)
 
-function onCreatureAppear(cid)
-	npcHandler:onCreatureAppear(cid)
-end
-function onCreatureDisappear(cid)
-	npcHandler:onCreatureDisappear(cid)
-end
-function onCreatureSay(cid, type, msg)
-	npcHandler:onCreatureSay(cid, type, msg)
-end
-function onThink()
-	npcHandler:onThink()
-end
+function onCreatureAppear(cid)			npcHandler:onCreatureAppear(cid)			end
+function onCreatureDisappear(cid)		npcHandler:onCreatureDisappear(cid)			end
+function onCreatureSay(cid, type, msg)		npcHandler:onCreatureSay(cid, type, msg)		end
+function onThink()				npcHandler:onThink()					end
 
 local function creatureSayCallback(cid, type, msg)
 	if(not npcHandler:isFocused(cid)) then
@@ -63,7 +55,7 @@ local function creatureSayCallback(cid, type, msg)
 			if player:getStorageValue(Storage.BigfootBurden.QuestLine) < 30 then
 				npcHandler:say("It seems you did not even set one big foot into the warzone, I am sorry.")
 			else
-				if player:getStorageValue(Storage.BigfootBurden.Warzone3Access) < 1 then
+				if player:getStorageValue(Storage.BigfootBurden.Warzone3Access) < 1 then 
 					if player:getStorageValue(Storage.BigfootBurden.WarzoneStatus) >= 3 then
 						if player:removeItem(18496, 1) then
 							player:setStorageValue(Storage.BigfootBurden.Warzone3Access, 1)
@@ -120,7 +112,7 @@ local function creatureSayCallback(cid, type, msg)
 end
 
 local function onTradeRequest(cid)
-	if Player(cid):getStorageValue(Storage.BigfootBurden.BossKills) < 20 then
+	if Player(cid):getStorageValue(Storage.BigfootBurden.bossKills) < 20 then
 		npcHandler:say('Only if you have killed 20 of our major enemies in the warzones I am allowed to trade with you.', cid)
 		return false
 	end

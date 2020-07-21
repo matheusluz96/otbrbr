@@ -1,6 +1,8 @@
 /**
+ * @file const.h
+ * 
  * The Forgotten Server - a free and open-source MMORPG server emulator
- * Copyright (C) 2019  Mark Samman <mark.samman@gmail.com>
+ * Copyright (C) 2020 Mark Samman <mark.samman@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,11 +19,10 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef FS_CONST_H_0A49B5996F074465BF44B90F4F780E8B
-#define FS_CONST_H_0A49B5996F074465BF44B90F4F780E8B
+#ifndef OT_SRC_CONST_H_
+#define OT_SRC_CONST_H_
 
-static constexpr size_t NETWORKMESSAGE_PLAYERNAME_MAXLENGTH = 30;
-static constexpr int32_t NETWORKMESSAGE_MAXSIZE = 24590;
+static constexpr int32_t NETWORKMESSAGE_MAXSIZE = 65535;
 
 enum MagicEffectClasses : uint8_t {
 	CONST_ME_NONE,
@@ -114,6 +115,7 @@ enum MagicEffectClasses : uint8_t {
 	CONST_ME_CRITICAL_DAMAGE = 173,
 	// 174 is empty
 	CONST_ME_PLUNGING_FISH = 175,
+
 	CONST_ME_BLUE_ENERGY_SPARK = 176,
 	CONST_ME_ORANGE_ENERGY_SPARK = 177,
 	CONST_ME_GREEN_ENERGY_SPARK = 178,
@@ -254,6 +256,8 @@ enum MessageClasses : uint8_t {
 	MESSAGE_PARTY = 35, /*White message in channel (+ channelId)*/
 	MESSAGE_EVENT_ORANGE = 36, /*Orange message in the console*/
 	MESSAGE_STATUS_CONSOLE_ORANGE = 37,  /*Orange message in the console*/
+
+	MESSAGE_STATUS_CONSOLE_BLUE = MESSAGE_EVENT_ADVANCE,
 };
 
 enum FluidColors_t : uint8_t {
@@ -362,13 +366,13 @@ enum TextColor_t : uint8_t {
 	TEXTCOLOR_LIGHTGREEN = 30,
 	TEXTCOLOR_LIGHTBLUE = 35,
 	TEXTCOLOR_MAYABLUE = 95,
+	TEXTCOLOR_MAYARED = 194,
 	TEXTCOLOR_DARKRED = 108,
 	TEXTCOLOR_LIGHTGREY = 129,
 	TEXTCOLOR_SKYBLUE = 143,
-	TEXTCOLOR_PURPLE = 154,
+	TEXTCOLOR_PURPLE = 155,
 	TEXTCOLOR_ELECTRICPURPLE = 155,
 	TEXTCOLOR_RED = 180,
-	TEXTCOLOR_PASTELRED = 194,
 	TEXTCOLOR_ORANGE = 198,
 	TEXTCOLOR_YELLOW = 210,
 	TEXTCOLOR_WHITE_EXP = 215,
@@ -392,6 +396,7 @@ enum Icons_t {
 	ICON_REDSWORDS = 1 << 13,
 	ICON_PIGEON = 1 << 14,
 	ICON_BLEEDING = 1 << 15,
+	ICON_WITHIN_RESTING_AREA = 1 << 16 //client 11.40+
 };
 
 enum QuickLootCategory_t : uint8_t {
@@ -501,10 +506,11 @@ enum GuildEmblems_t : uint8_t {
 enum item_t : uint16_t {
 	ITEM_BROWSEFIELD = 460, // for internal use
 
-	ITEM_DEPOT_NULL = 25452, // for internal use
 	ITEM_GOLD_POUCH = 26377,
 	TRANSFORM_BOX_ID = 26054, // for internal use
+	ITEM_SUPPLY_STASH = 32450,
 
+	ITEM_DEPOT_NULL = 25452, // for internal use
 	ITEM_DEPOT_I = 25453,
 	ITEM_DEPOT_II = 25454,
 	ITEM_DEPOT_III = 25455,
@@ -564,7 +570,6 @@ enum item_t : uint16_t {
 	ITEM_INBOX = 14404,
 	ITEM_MARKET = 14405,
 	ITEM_STORE_INBOX = 26052,
-	
 
 	ITEM_MALE_CORPSE = 3058,
 	ITEM_FEMALE_CORPSE = 3065,
@@ -595,12 +600,7 @@ enum item_t : uint16_t {
 	ITEM_KEG_START = 28579, //kegs ids are contiguous in item.otb
 	ITEM_KEG_END = 28590,
 
-	ITEM_WALKABLE_SEA_START = 4620,
-	ITEM_WALKABLE_SEA_END = 4625,
-
 	ITEM_DOCUMENT_RO = 1968, //read-only
-
-	ITEM_STONE_SKIN_AMULET = 2197,
 };
 
 enum PlayerFlags : uint64_t {
@@ -662,7 +662,6 @@ enum ReloadTypes_t : uint8_t  {
 	RELOAD_TYPE_NPCS,
 	RELOAD_TYPE_RAIDS,
 	RELOAD_TYPE_SCRIPTS,
-	RELOAD_TYPE_STAGES,
 	RELOAD_TYPE_SPELLS,
 	RELOAD_TYPE_TALKACTIONS,
 	RELOAD_TYPE_WEAPONS,
@@ -676,6 +675,12 @@ enum NameEval_t : uint8_t {
 	INVALID_TOKEN_LENGTH,
 	INVALID_FORBIDDEN,
 	INVALID_CHARACTER
+};
+
+enum DailyRewardStorages_t : uint32_t {
+	DAILYREWARDSTORAGE_NEXTREWARDPICK = 69799,
+	DAILYREWARDSTORAGE_LASTREWARDPICK = 69800,
+	DAILYREWARDSTORAGE_STREAKDAYS = 69801
 };
 
 static constexpr int32_t CHANNEL_GUILD = 0x00;
@@ -696,7 +701,8 @@ static constexpr int32_t PSTRG_MOUNTS_RANGE_START = (PSTRG_RESERVED_RANGE_START 
 static constexpr int32_t PSTRG_MOUNTS_RANGE_SIZE = 10;
 static constexpr int32_t PSTRG_MOUNTS_CURRENTMOUNT = (PSTRG_MOUNTS_RANGE_START + 10);
 
-
 #define IS_IN_KEYRANGE(key, range) (key >= PSTRG_##range##_START && ((key - PSTRG_##range##_START) <= PSTRG_##range##_SIZE))
+
+#define PREY_SLOTCOUNT 3
 
 #endif

@@ -1,22 +1,14 @@
-	local keywordHandler = KeywordHandler:new()
+ local keywordHandler = KeywordHandler:new()
 local npcHandler = NpcHandler:new(keywordHandler)
 NpcSystem.parseParameters(npcHandler)
 
-function onCreatureAppear(cid)
-	npcHandler:onCreatureAppear(cid)
-end
-function onCreatureDisappear(cid)
-	npcHandler:onCreatureDisappear(cid)
-end
-function onCreatureSay(cid, type, msg)
-	npcHandler:onCreatureSay(cid, type, msg)
-end
-function onThink()
-	npcHandler:onThink()
-end
+function onCreatureAppear(cid)			npcHandler:onCreatureAppear(cid)			end
+function onCreatureDisappear(cid)		npcHandler:onCreatureDisappear(cid)			end
+function onCreatureSay(cid, type, msg)		npcHandler:onCreatureSay(cid, type, msg)		end
+function onThink()				npcHandler:onThink()					end
 
 local config = {
-	['20 brown pieces of cloth'] = {
+	['brown pieces of cloth'] = {
 		itemId = 5913,
 		count = 20,
 		value = 1,
@@ -27,7 +19,7 @@ local config = {
 			success = 'Yes, yes, that\'s it! Very well, now I need 50 pieces of minotaur leather to continue.'
 		}
 	},
-	['50 minotaur leathers'] = {
+	['minotaur leather'] = {
 		itemId = 5878,
 		count = 50,
 		value = 2,
@@ -38,7 +30,7 @@ local config = {
 			success = 'Great! This leather will suffice. Now, please, the 10 bat wings.'
 		}
 	},
-	['10 bat wings'] = {
+	['bat wings'] = {
 		itemId = 5894,
 		count = 10,
 		value = 3,
@@ -49,7 +41,7 @@ local config = {
 			success = 'Hooray! These bat wings are ugly enough. Now the last thing: Please bring me 30 heaven blossoms to neutralise the ghoulish stench.'
 		}
 	},
-	['30 heaven blossoms'] = {
+	['heaven blossoms'] = {
 		itemId = 5921,
 		count = 30,
 		value = 4,
@@ -77,17 +69,17 @@ local function creatureSayCallback(cid, type, msg)
 
 	local player = Player(cid)
 	if msgcontains(msg, "uniforms") then
-		if player:getStorageValue(Storage.Postman.Mission06) == 1 then
+		if player:getStorageValue(Storage.postman.Mission06) == 1 then
 			npcHandler:say("A new uniform for the post officers? I am sorry but my dog ate the last dress pattern we used. You need to supply us with a new dress pattern.", cid)
 			npcHandler.topic[cid] = 1
 		end
 	elseif msgcontains(msg, "dress pattern") then
 		if npcHandler.topic[cid] == 1 then
 			npcHandler:say("It was ... wonderous beyond wildest imaginations! I have no clue where Kevin Postner got it from. Better ask him.", cid)
-			player:setStorageValue(Storage.Postman.Mission06, 2)
-		elseif player:getStorageValue(Storage.Postman.Mission06) == 11 then
+			player:setStorageValue(Storage.postman.Mission06, 2)
+		elseif player:getStorageValue(Storage.postman.Mission06) == 11 then
 			npcHandler:say("By the gods of fashion! Didn't it do that I fed the last dress pattern to my poor dog? Will this mocking of all which is taste and fashion never stop?? Ok, ok, you will get those ugly, stinking uniforms and now get lost, fashion terrorist.", cid)
-			player:setStorageValue(Storage.Postman.Mission06, 12)
+			player:setStorageValue(Storage.postman.Mission06, 12)
 		end
 		npcHandler.topic[cid] = 0
 	elseif msgcontains(msg, 'outfit') then

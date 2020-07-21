@@ -2,36 +2,23 @@ local keywordHandler = KeywordHandler:new()
 local npcHandler = NpcHandler:new(keywordHandler)
 NpcSystem.parseParameters(npcHandler)
 
-function onCreatureAppear(cid)
-	npcHandler:onCreatureAppear(cid)
-end
-function onCreatureDisappear(cid)
-	npcHandler:onCreatureDisappear(cid)
-end
-function onCreatureSay(cid, type, msg)
-	npcHandler:onCreatureSay(cid, type, msg)
-end
-function onThink()
-	npcHandler:onThink()
-end
+function onCreatureAppear(cid)			npcHandler:onCreatureAppear(cid)			end
+function onCreatureDisappear(cid)		npcHandler:onCreatureDisappear(cid)			end
+function onCreatureSay(cid, type, msg)		npcHandler:onCreatureSay(cid, type, msg)		end
+function onThink()		npcHandler:onThink()		end
 
 local voices = { {text = 'Offering all sorts of magic equipment.'} }
 npcHandler:addModule(VoiceModule:new(voices))
-
-local items = {
-	[VOCATION.CLIENT_ID.SORCERER] = 2190,
-	[VOCATION.CLIENT_ID.DRUID] = 2182
-}
 
 local function creatureSayCallback(cid, type, msg)
 	if not npcHandler:isFocused(cid) then
 		return false
 	end
-
 	local player = Player(cid)
+	local items = {[1] = 2190, [2] = 2182}
+	local itemId = items[player:getVocation():getBase():getId()]
 	if msgcontains(msg, 'first rod') or msgcontains(msg, 'first wand') then
 		if player:isMage() then
-			local itemId = items[player:getVocation():getClientId()]
 			if player:getStorageValue(Storage.firstMageWeapon) == -1 then
 				npcHandler:say('So you ask me for a {' .. ItemType(itemId):getName() .. '} to begin your adventure?', cid)
 				npcHandler.topic[cid] = 1

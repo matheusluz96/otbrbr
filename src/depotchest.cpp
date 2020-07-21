@@ -2,7 +2,7 @@
  * @file depotchest.cpp
  * 
  * The Forgotten Server - a free and open-source MMORPG server emulator
- * Copyright (C) 2019 Mark Samman <mark.samman@gmail.com>
+ * Copyright (C) 2020 Mark Samman <mark.samman@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,7 +32,7 @@ DepotChest::DepotChest(uint16_t type) :
 	pagination = true;
 }
 
-ReturnValue DepotChest::queryAdd(int32_t index, const Thing& thing, uint32_t count,
+ReturnValue DepotChest::queryAdd(int32_t index, const Thing& thing, uint32_t amount,
 		uint32_t flags, Creature* actor/* = nullptr*/) const
 {
 	const Item* item = thing.getItem();
@@ -44,7 +44,7 @@ ReturnValue DepotChest::queryAdd(int32_t index, const Thing& thing, uint32_t cou
 	if (!skipLimit) {
 		int32_t addCount = 0;
 
-		if ((item->isStackable() && item->getItemCount() != count)) {
+		if ((item->isStackable() && item->getItemCount() != amount)) {
 			addCount = 1;
 		}
 
@@ -66,7 +66,7 @@ ReturnValue DepotChest::queryAdd(int32_t index, const Thing& thing, uint32_t cou
 		}
 	}
 
-	return Container::queryAdd(index, thing, count, flags, actor);
+	return Container::queryAdd(index, thing, amount, flags, actor);
 }
 
 void DepotChest::postAddNotification(Thing* thing, const Cylinder* oldParent, int32_t index, cylinderlink_t)

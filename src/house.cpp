@@ -1,6 +1,8 @@
 /**
+ * @file house.cpp
+ * 
  * The Forgotten Server - a free and open-source MMORPG server emulator
- * Copyright (C) 2019  Mark Samman <mark.samman@gmail.com>
+ * Copyright (C) 2020 Mark Samman <mark.samman@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -85,25 +87,11 @@ void House::setOwner(uint32_t guid, bool updateDatabase/* = true*/, Player* play
 		for (Door* door : doorList) {
 			door->setAccessList("");
 		}
-	} else {
-		std::string strRentPeriod = asLowerCaseString(g_config.getString(ConfigManager::HOUSE_RENT_PERIOD));
-		time_t currentTime = time(nullptr);
-		if (strRentPeriod == "yearly") {
-		    currentTime += 24 * 60 * 60 * 365;
-		} else if (strRentPeriod == "monthly") {
-		    currentTime += 24 * 60 * 60 * 30;
-		} else if (strRentPeriod == "weekly") {
-		    currentTime += 24 * 60 * 60 * 7;
-		} else if (strRentPeriod == "daily") {
-		    currentTime += 24 * 60 * 60;
-		} else {
-		    currentTime = 0;
-		}
 
-		paidUntil = currentTime;
+		//reset paid date
+		paidUntil = 0;
+		rentWarnings = 0;
 	}
-
-	rentWarnings = 0;
 
 	if (guid != 0) {
 		std::string name = IOLoginData::getNameByGuid(guid);
@@ -238,36 +226,17 @@ bool House::transferToDepot(Player* player) const
 	if (townId == 0 || owner == 0) {
 		return false;
 	}
-int constructionKits[58][2] = {
-{3901, 1666}, {3902, 1670}, {3903, 1652}, {3904, 1674},
-{3905, 1658}, {3906, 3813}, {3907, 3817}, {3908, 1619}, {3909, 12799}, {3910, 2105},
-{3911, 1614}, {3912, 3806}, {3913, 3807}, {3914, 3809}, {3915, 1716}, {3916, 1724},
-{3917, 1732}, {3918, 1775}, {3919, 1774}, {3920, 1750}, {3921, 3832}, {3922, 2095},
-{3923, 2098}, {3924, 2064}, {3925, 2582}, {3926, 2117}, {3927, 1728}, {3928, 1442},
-{3929, 1446}, {3930, 1447}, {3931, 2034}, {3932, 2604}, {3933, 2080}, {3934, 2084},
-{3935, 3821}, {3936, 3811}, {3937, 2101}, {3938, 3812}, {5086, 5046}, {5087, 5055},
-{5088, 5056}, {6114, 6111}, {6115, 6109}, {6372, 6356}, {6373, 6371}, {8692, 8688},
-{9974, 9975}, {11124, 11125}, {11126, 11127}, {11133, 11129}, {11205, 11203}, {14328, 1616},
-{14329, 1615}, {16075, 16020}, {16099, 16098}, {20254, 20295}, {20255, 20297}, {20257, 20299},
-	};
+
 	ItemList moveItemList;
 	for (HouseTile* tile : houseTiles) {
 		if (const TileItemVector* items = tile->getItemList()) {
 			for (Item* item : *items) {
 				if (item->isWrapable()) {
-					Container* container = item->getContainer();
-					if (container) {
-						for (Item* containerItem : container->getItemList()) {
-							moveItemList.push_back(containerItem);
-						}
-					}
 					std::string itemName = item->getName();
 					uint16_t itemID = item->getID();
-					Item* newItem = g_game.transformItem(item, 26054);
-					ItemAttributes::CustomAttribute val;
-					val.set<int64_t>(itemID);
-					std::string key = "unWrapId";
-					newItem->setCustomAttribute(key, val);
+					uint16_t newWrapId = Item::items[item->getID()].wrapableTo;
+					Item* newItem = g_game.transformItem(item, newWrapId);
+					newItem->setIntAttr(ITEM_ATTRIBUTE_ACTIONID, itemID);
 					std::ostringstream ss;
 					ss << "Unwrap it in your own house to create a <" << itemName << ">.";
 					newItem->setStrAttr(ITEM_ATTRIBUTE_DESCRIPTION, ss.str());
@@ -275,32 +244,11 @@ int constructionKits[58][2] = {
 				}
 				else if (item->isPickupable()) {
 					moveItemList.push_back(item);
-				}
-				else {
+				} else {
 					Container* container = item->getContainer();
 					if (container) {
 						for (Item* containerItem : container->getItemList()) {
 							moveItemList.push_back(containerItem);
-						}
-					}
-					for (int i = 0; i < 58; i++) {
-						if (constructionKits[i][1] == item->getID()) {
-							Item* newItem = g_game.transformItem(item, constructionKits[i][0]);
-							moveItemList.push_back(newItem);
-							break;
-						}
-						if (item->isRotatable()) {
-							uint16_t newRotation = item->getID();
-							for (int x = 0; x < 5; x++) {
-								if (!Item::items[newRotation].rotatable) break;
-								newRotation = Item::items[newRotation].rotateTo;
-								if (newRotation == item->getID()) break;
-								if (newRotation == constructionKits[i][1]) {
-									Item* newItem = g_game.transformItem(item, constructionKits[i][0]);
-									moveItemList.push_back(newItem);
-									break;
-								}
-							}
 						}
 					}
 				}
@@ -456,17 +404,21 @@ bool House::executeTransfer(HouseTransferItem* item, Player* newOwner)
 	return true;
 }
 
-void AccessList::parseList(const std::string& list)
+void AccessList::parseList(const std::string& listToParse)
 {
 	playerList.clear();
 	guildRankList.clear();
-	this->list = list;
-	if (list.empty()) {
+	expressionList.clear();
+	regExList.clear();
+	this->list = listToParse;
+	if (listToParse.empty()) {
 		return;
 	}
 
-	auto lines = explodeString(list, "\n", 100);
-	for (auto& line : lines) {
+	std::istringstream listStream(listToParse);
+	std::string line;
+
+	while (getline(listStream, line)) {
 		trimString(line);
 		trim_left(line, '\t');
 		trim_right(line, '\t');
@@ -485,10 +437,9 @@ void AccessList::parseList(const std::string& list)
 			} else {
 				addGuildRank(line.substr(0, at_pos - 1), line.substr(at_pos + 1));
 			}
-		} else if (line.find_first_of("!*?") != std::string::npos) {
-			// Remove regular expressions since they don't make much sense in houses
-			continue;
-		} else if (line.length() <= NETWORKMESSAGE_PLAYERNAME_MAXLENGTH) {
+		} else if (line.find("!") != std::string::npos || line.find("*") != std::string::npos || line.find("?") != std::string::npos) {
+			addExpression(line);
+		} else {
 			addPlayer(line);
 		}
 	}
@@ -547,8 +498,52 @@ void AccessList::addGuildRank(const std::string& name, const std::string& guildN
 	}
 }
 
+void AccessList::addExpression(const std::string& expression)
+{
+	if (std::find(expressionList.begin(), expressionList.end(), expression) != expressionList.end()) {
+		return;
+	}
+
+	std::string outExp;
+	outExp.reserve(expression.length());
+
+	std::string metachars = ".[{}()\\+|^$";
+	for (const char c : expression) {
+		if (metachars.find(c) != std::string::npos) {
+			outExp.push_back('\\');
+		}
+		outExp.push_back(c);
+	}
+
+	replaceString(outExp, "*", ".*");
+	replaceString(outExp, "?", ".?");
+
+	try {
+		if (!outExp.empty()) {
+			expressionList.push_back(outExp);
+
+			if (outExp.front() == '!') {
+				if (outExp.length() > 1) {
+					regExList.emplace_front(std::regex(outExp.substr(1)), false);
+				}
+			} else {
+				regExList.emplace_back(std::regex(outExp), true);
+			}
+		}
+	} catch (...) {}
+}
+
 bool AccessList::isInList(const Player* player)
 {
+	std::string name = asLowerCaseString(player->getName());
+	std::cmatch what;
+
+	for (const auto& it : regExList) {
+		if (std::regex_match(name.c_str(), what, it.first)) {
+			return it.second;
+		}
+	}
+
 	auto playerIt = playerList.find(player->getGUID());
 	if (playerIt != playerList.end()) {
 		return true;
@@ -675,8 +670,8 @@ bool Houses::loadHousesXML(const std::string& filename)
 		);
 		if (entryPos.x == 0 && entryPos.y == 0 && entryPos.z == 0) {
 			std::cout << "[Warning - Houses::loadHousesXML] House entry not set"
-					    << " - Name: " << house->getName()
-					    << " - House id: " << houseId << std::endl;
+						<< " - Name: " << house->getName()
+						<< " - House id: " << houseId << std::endl;
 		}
 		house->setEntryPos(entryPos);
 
